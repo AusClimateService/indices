@@ -1,0 +1,26 @@
+Indicators,Threshold / Indices,Historical,Seasonal,Multi-year,Near future,Far future,Regions,Contact Person
+Forest Fire Danger Index,"There are a number of options that will be explored.
+
+1. Black Summer-like scenario: cumulative FFDI (D, DJ, SONDJF)
+
+2. Daily extreme fire weatehr conditions (e.g., Black Saturday like scenario) - considering daily values of FFDI.
+
+3. Changes in 'dangerous fire days': 'dangerous' fire days are defined as days when the FFDI exceeds the 90% percentile calculated over the climatology period (1990-2019). This is adapting the fire weather results shown in the State of the Climate report. 
+
+",Avg threshold for fire event,Likelihood of exceedence for fire event threshold,Likelihood and frequency of exceedence for fire event threshold,"1. Produce a 'seemless' timeseries of seasonal cumulative FFDI for the study region (e.g., Bega LGA) spanning the historical/obs into the ensemble of regional climate projections.
+
+2. Explore possibility of producing maps showing the 'change in number of dangerous fire days' between the period 1990-2019 and the two future periods.
+","1. Produce a 'seemless' timeseries of seasonal cumulative FFDI for the study region (e.g., Bega LGA) spanning the historical/obs into the ensemble of regional climate projections.
+
+2. Explore possibility of producing maps showing the 'change in number of dangerous fire days' between the period 1990-2019 and the two future periods.
+","1. Bega Local Govenrment Area
+
+2. Adelaide LGA",Mitchell Black
+"Temperature (max, avg, duration?)",,,,,,,,
+Excess Heat Factor,,Avg threshold for fire event,Likelihood of exceedence for fire event threshold,Likelihood and frequency of exceedence for fire event threshold,"Frequency of fire event days according to EHF threshold - change in frequency, EHF severe class area change - change in severity","Frequency of fire event days according to EHF threshold - change in frequency, EHF severe class area change - change in severity",,
+Landscape dryness (Soil moisture),"Thresholds: POE and exceedence: [<12%, <17%]",Avg threshold for fire event,Likelihood of exceedence for fire event threshold,,"Frequency of fire event days according to soil moisture threshold - change in frequency, soil moisture threshold area change - change in severity","Frequency of fire event days according to soil moisture threshold - change in frequency, soil moisture threshold area change - change in severity",Individual grid cells + grid cell summation for area,
+Aridity (Aridity Index),,Avg threshold for fire event,Likelihood of exceedence for fire event threshold,,"Frequency of fire event days according to aridity threshold - change in frequency, aridity threshold area change - change in severity","Frequency of fire event days according to aridity threshold - change in frequency, aridity threshold area change - change in severity",Individual grid cells + grid cell summation for area,
+Runoff ,Thresholds: POE and exceedence: [<0.3mm],,,,"Frequency of fire event days according to runoff thresholds - change in frequency, heatwave thresholds area change - change in severity","Frequency of fire event days according to runoff thresholds - change in frequency, heatwave thresholds area change - change in severity",,
+Climate driver/s,,,,,,,,
+,,,,,,,,
+Drought conditions,,12 and 24 month precip' below 10th percentile,,,,,,
