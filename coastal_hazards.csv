@@ -1,5 +1,7 @@
 Indicators,Threshold,Historical,Seasonal,Multi-year,Near future,Far future,Regions
 Tropical Cylones,,likelihood of experiencing Cat 1 - 5 cyclones,likelihood of experiencing Cat 1 - 5 cyclones,likelihood of experiencing Cat 1 - 5 cyclones,likelihood of experiencing Cat 1 - 5 cyclones,likelihood of experiencing Cat 1 - 5 cyclones,Northern Australia
+Tropical Cyclones,,Probability of landfall,Probability of landfall,Probability of landfall,Probability of landfall,Probability of landfall,Australian coastline or forecast regions/LGAs/Disaster districts
+Tropical Cyclones,,AEP wind speeds,AEP wind speeds,AEP wind speeds,AEP wind speeds,AEP wind speeds,specific locations around northern coastline (e.g. AWS)
 East Coast Lows,,,,,,,NSW
 Storm tide levels ,,"AEP events, e.g. 1 in 100 year event levels","AEP events, e.g. 1 in 100 year event levels ","AEP events, e.g. 1 in 100 year event levels",AEP event + near future SLR,AEP event + far future SLR,
 Wave runup excursion,,"AEP events, e.g. 1 in 100 year event levels","AEP events, e.g. 1 in 100 year event levels","AEP events, e.g. 1 in 100 year event levels",AEP event + near future SLR,AEP event + far future SLR,
