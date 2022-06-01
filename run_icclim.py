@@ -3,6 +3,7 @@
 import argparse
 
 import git
+import xarray as xr
 import icclim
 from icclim.models.ecad_indices import EcadIndex
 import dask.diagnostics
@@ -25,11 +26,34 @@ def get_new_log():
     return new_log
 
 
+def fix_metadata(ds, dataset, variable):
+    """Apply dataset- and variable-specific metdata fixes.
+
+    icclim (using xclim under the hood) does CF-compliance checks
+      that some datasets fail
+    """
+
+    if (dataset == 'AGCD') and (variable == 'precip'):
+        ds['precip'].attrs = {
+            'standard_name': 'precipitation_flux',
+            'long_name': 'Precipitation',
+            'units': 'mm d-1',
+        }
+    else:
+        ValueError(f'No metadata fixes defined for {dataset} {variable}')
+
+    return ds
+
+
 def main(args):
     """Run the program."""
 
+    ds = xr.open_mfdataset(args.in_files)
+    if args.dataset:
+        ds = fix_metadata(ds, args.dataset, args.var_name)
+
     index = icclim.index(
-        in_files=args.in_files,
+        in_files=ds,
         index_name=args.index_name,
         var_name=args.var_name,
         slice_mode=args.slice_mode,
@@ -59,6 +83,13 @@ if __name__ == '__main__':
         choices=['year', 'month', 'DJF', 'MAM', 'JJA', 'SON', 'ONDJFM', 'AMJJAS'],
         default='year',
         help='Sampling frequency for index calculation',
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=['AGCD'],
+        default=None,
+        help='Apply dataset and variable specific metadata fixes for CF compliance',
     ) 
     args = parser.parse_args()
     main(args)
