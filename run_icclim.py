@@ -1,5 +1,5 @@
 """Command line program for calculating extremes indices."""
-
+import pdb
 import argparse
 
 import git
@@ -39,6 +39,12 @@ def fix_metadata(ds, dataset, variable):
             'long_name': 'Precipitation',
             'units': 'mm d-1',
         }
+    elif (dataset == 'AGCD') and (variable == 'tmax'):
+        ds['tmax'].attrs = {
+            'standard_name': 'air_temperature',
+            'long_name': 'Daily Maximum Near-Surface Air Temperature',
+            'units': 'degC',
+        }
     else:
         ValueError(f'No metadata fixes defined for {dataset} {variable}')
 
@@ -51,6 +57,12 @@ def main(args):
     ds = xr.open_mfdataset(args.in_files)
     if args.dataset:
         ds = fix_metadata(ds, args.dataset, args.var_name)
+    if args.index_name in ['r95ptot', 'r99ptot']:
+        ds = ds.chunk({'time': -1, 'lon': 1})
+    try:
+        ds = ds.drop('height')
+    except ValueError:
+        pass
 
     index = icclim.index(
         in_files=ds,
@@ -59,6 +71,10 @@ def main(args):
         slice_mode=args.slice_mode,
     )
     index.attrs['history'] = get_new_log()
+
+    if args.drop_time_bounds:
+        index = index.drop('time_bounds').drop('bounds')
+        del index['time'].attrs['bounds']
     index.to_netcdf(args.out_file)
 
 if __name__ == '__main__':
@@ -90,6 +106,12 @@ if __name__ == '__main__':
         choices=['AGCD'],
         default=None,
         help='Apply dataset and variable specific metadata fixes for CF compliance',
+    )
+    parser.add_argument(
+        "--drop_time_bounds",
+        action='store_true',
+        default=False,
+        help='Drop the time bounds from output file',
     ) 
     args = parser.parse_args()
     main(args)
