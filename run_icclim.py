@@ -45,6 +45,12 @@ def fix_metadata(ds, dataset, variable):
             'long_name': 'Daily Maximum Near-Surface Air Temperature',
             'units': 'degC',
         }
+    elif (dataset == 'AGCD') and (variable == 'tmin'):
+        ds['tmin'].attrs = {
+            'standard_name': 'air_temperature',
+            'long_name': 'Daily Minimum Near-Surface Air Temperature',
+            'units': 'degC',
+        }
     else:
         ValueError(f'No metadata fixes defined for {dataset} {variable}')
 
