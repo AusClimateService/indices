@@ -1,6 +1,7 @@
 """Command line program for calculating extremes indices."""
 import pdb
 import argparse
+from dateutil import parser
 
 import git
 import xarray as xr
@@ -70,11 +71,19 @@ def main(args):
     except ValueError:
         pass
 
+    if args.base_period:
+        start_date = parser.parse(args.base_period[0])
+        end_date = parser.parse(args.base_period[1])
+        base_period = [start_date, end_date]
+    else:
+        base_period = None
+
     index = icclim.index(
         in_files=ds,
         index_name=args.index_name,
         var_name=args.var_name,
         slice_mode=args.slice_mode,
+        base_period_time_range=base_period,
     )
     index.attrs['history'] = get_new_log()
 
@@ -90,34 +99,42 @@ if __name__ == '__main__':
         if not index.group.name == 'COMPOUND':
             valid_indices.append(index.short_name.lower())
 
-    parser = argparse.ArgumentParser(
+    arg_parser = argparse.ArgumentParser(
         description=__doc__,
         argument_default=argparse.SUPPRESS,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
-    parser.add_argument("in_files", type=str, nargs='*', help="input files")
-    parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
-    parser.add_argument("var_name", type=str, help="variable name")
-    parser.add_argument("out_file", type=str, help="output file name")
-    parser.add_argument(
+    arg_parser.add_argument("in_files", type=str, nargs='*', help="input files")
+    arg_parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
+    arg_parser.add_argument("var_name", type=str, help="variable name")
+    arg_parser.add_argument("out_file", type=str, help="output file name")
+    arg_parser.add_argument(
+        "--base_period",
+        type=str,
+        nargs=2,
+        default=None,
+        help='Base period (for percentile calculations) in YYYY-MM-DD format',
+    )
+    arg_parser.add_argument(
         "--slice_mode",
         type=str,
         choices=['year', 'month', 'DJF', 'MAM', 'JJA', 'SON', 'ONDJFM', 'AMJJAS'],
         default='year',
         help='Sampling frequency for index calculation',
     )
-    parser.add_argument(
+    arg_parser.add_argument(
         "--dataset",
         type=str,
         choices=['AGCD'],
         default=None,
         help='Apply dataset and variable specific metadata fixes for CF compliance',
     )
-    parser.add_argument(
+    arg_parser.add_argument(
         "--drop_time_bounds",
         action='store_true',
         default=False,
         help='Drop the time bounds from output file',
-    ) 
-    args = parser.parse_args()
+    )
+ 
+    args = arg_parser.parse_args()
     main(args)
