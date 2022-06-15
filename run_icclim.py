@@ -1,5 +1,5 @@
 """Command line program for calculating extremes indices."""
-import pdb
+
 import argparse
 from dateutil import parser
 
@@ -14,7 +14,7 @@ import cmdline_provenance as cmdprov
 dask.diagnostics.ProgressBar().register()
 
 
-def get_new_log():
+def get_new_log(infile, history):
     """Generate command log for output file."""
 
     try:
@@ -22,7 +22,10 @@ def get_new_log():
         repo_url = repo.remotes[0].url.split(".git")[0]
     except (git.exc.InvalidGitRepositoryError, NameError):
         repo_url = None
-    new_log = cmdprov.new_log(code_url=repo_url)
+    new_log = cmdprov.new_log(
+        infile_logs = {infile: history},
+        code_url=repo_url,
+    )
 
     return new_log
 
@@ -60,12 +63,11 @@ def fix_metadata(ds, dataset, variable):
 
 def main(args):
     """Run the program."""
-
-    ds = xr.open_mfdataset(args.in_files)
+    
+    infiles = args.in_files[0] if len(args.in_files) == 1 else args.in_files
+    ds = xr.open_mfdataset(infiles)
     if args.dataset:
         ds = fix_metadata(ds, args.dataset, args.var_name)
-    if args.index_name in ['r95ptot', 'r99ptot']:
-        ds = ds.chunk({'time': -1, 'lon': 1})
     try:
         ds = ds.drop('height')
     except ValueError:
@@ -85,7 +87,7 @@ def main(args):
         slice_mode=args.slice_mode,
         base_period_time_range=base_period,
     )
-    index.attrs['history'] = get_new_log()
+    index.attrs['history'] = get_new_log(args.in_files[0], ds.attrs['history'])
 
     if args.drop_time_bounds:
         index = index.drop('time_bounds').drop('bounds')
