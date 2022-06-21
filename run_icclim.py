@@ -72,6 +72,9 @@ def main(args):
         ds = ds.drop('height')
     except ValueError:
         pass
+    if args.time_period:
+        start_date, end_date = args.time_period
+        ds = ds.sel({'time': slice(start_date, end_date)})
 
     if args.base_period:
         start_date = parser.parse(args.base_period[0])
@@ -110,6 +113,13 @@ if __name__ == '__main__':
     arg_parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
     arg_parser.add_argument("var_name", type=str, help="variable name")
     arg_parser.add_argument("out_file", type=str, help="output file name")
+    arg_parser.add_argument(
+        "--time_period",
+        type=str,
+        nargs=2,
+        default=None,
+        help='Time period in YYYY-MM-DD format',
+    )
     arg_parser.add_argument(
         "--base_period",
         type=str,
