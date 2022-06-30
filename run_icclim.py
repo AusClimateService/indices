@@ -1,17 +1,27 @@
 """Command line program for calculating extremes indices."""
-
+import pdb
 import argparse
+import logging
 from dateutil import parser
 
 import git
+import numpy as np
 import xarray as xr
 import icclim
 from icclim.models.ecad_indices import EcadIndex
 import dask.diagnostics
+from dask.distributed import Client, LocalCluster, progress
 import cmdline_provenance as cmdprov
 
 
-dask.diagnostics.ProgressBar().register()
+def profiling_stats(rprof):
+    """Record profiling information"""
+
+    max_memory = np.max([result.mem for result in rprof.results])
+    max_cpus = np.max([result.cpu for result in rprof.results])
+
+    logging.info(f'Peak memory usage: {max_memory}MB')
+    logging.info(f'Peak CPU usage: {max_cpus}%')
 
 
 def get_new_log(infile, history):
@@ -63,11 +73,24 @@ def fix_metadata(ds, dataset, variable):
 
 def main(args):
     """Run the program."""
-    
+
+    log_level = logging.DEBUG if args.verbose else logging.WARNING
+    logging.basicConfig(level=log_level)
+
+    if args.local_cluster:
+        dask.config.set(temporary_directory='/g/data/xv83/dbi599/')
+        cluster = LocalCluster(n_workers=args.nworkers)
+        client = Client(cluster)
+        print("Watch progress at http://localhost:8787/status")
+    else:
+        dask.diagnostics.ProgressBar().register()
+
     infiles = args.in_files[0] if len(args.in_files) == 1 else args.in_files
     ds = xr.open_mfdataset(infiles)
     if args.dataset:
         ds = fix_metadata(ds, args.dataset, args.var_name)
+    if args.index_name in ['r95ptot', 'r99ptot']:
+        ds = ds.chunk({'time': -1, 'lon': 1})
     try:
         ds = ds.drop('height')
     except ValueError:
@@ -75,6 +98,8 @@ def main(args):
     if args.time_period:
         start_date, end_date = args.time_period
         ds = ds.sel({'time': slice(start_date, end_date)})
+    logging.info(f'Array size: {ds[args.var_name].shape}')
+    logging.info(f'Chunk size: {ds[args.var_name].chunksizes}')
 
     if args.base_period:
         start_date = parser.parse(args.base_period[0])
@@ -147,6 +172,33 @@ if __name__ == '__main__':
         default=False,
         help='Drop the time bounds from output file',
     )
- 
+    arg_parser.add_argument(
+        "--memory_vis",
+        action="store_true",
+        default=False,
+        help='Visualise memory and CPU usage (creates profile.html)',
+    )
+    arg_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=False,
+        help='Set logging level to DEBUG',
+    )
+    arg_parser.add_argument(
+        "--local_cluster",
+        action="store_true",
+        default=False,
+        help='Use a local dask cluster',
+    )
+    arg_parser.add_argument(
+        "--nworkers",
+        type=int,
+        default=None,
+        help='Number of workers for cluster [default lets dask decide]',
+    )
     args = arg_parser.parse_args()
-    main(args)
+    with dask.diagnostics.ResourceProfiler() as rprof:
+        main(args)
+    if args.memory_vis:
+        rprof.visualize(filename='profile.html')
+    profiling_stats(rprof)
