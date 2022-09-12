@@ -1,5 +1,5 @@
 """Command line program for calculating extremes indices."""
-import pdb
+
 import argparse
 import logging
 from dateutil import parser
@@ -71,35 +71,56 @@ def fix_metadata(ds, dataset, variable):
     return ds
 
 
-def main(args):
-    """Run the program."""
+def subset_and_chunk(ds, var, time_period=None, lon_chunk_size=None):
+    """Subset and chunk a dataset."""
 
-    log_level = logging.DEBUG if args.verbose else logging.WARNING
-    logging.basicConfig(level=log_level)
+    if time_period:
+        start_date, end_date = time_period
+        ds = ds.sel({'time': slice(start_date, end_date)})
 
-    if args.local_cluster:
-        dask.config.set(temporary_directory='/g/data/xv83/dbi599/')
-        cluster = LocalCluster(n_workers=args.nworkers)
-        client = Client(cluster)
-        print("Watch progress at http://localhost:8787/status")
+#    chunk_dict = {'time': -1}
+#    if lon_chunk_size:
+#        chunk_dict['lon'] = lon_chunk_size
+#    ds = ds.chunk(chunk_dict)
+
+#    if args.index_name in ['r95ptot', 'r99ptot']:
+#        ds = ds.chunk({'time': -1, 'lon': 1})
+
+    logging.info(f'Array size: {ds[var].shape}')
+    logging.info(f'Chunk size: {ds[var].chunksizes}')
+
+    return ds
+
+
+def read_data(infiles, variable_name, dataset_name=None):
+    """Read the input data file/s."""
+
+    if len(infiles) == 1:
+        ds = xr.open_dataset(infiles[0])
     else:
-        dask.diagnostics.ProgressBar().register()
+        ds = xr.open_mfdataset(infiles)
 
-    infiles = args.in_files[0] if len(args.in_files) == 1 else args.in_files
-    ds = xr.open_mfdataset(infiles)
-    if args.dataset:
-        ds = fix_metadata(ds, args.dataset, args.var_name)
-    if args.index_name in ['r95ptot', 'r99ptot']:
-        ds = ds.chunk({'time': -1, 'lon': 1})
+    if dataset_name:
+        ds = fix_metadata(ds, dataset_name, variable_name)
+
     try:
         ds = ds.drop('height')
     except ValueError:
         pass
-    if args.time_period:
-        start_date, end_date = args.time_period
-        ds = ds.sel({'time': slice(start_date, end_date)})
-    logging.info(f'Array size: {ds[args.var_name].shape}')
-    logging.info(f'Chunk size: {ds[args.var_name].chunksizes}')
+
+    return ds
+
+
+def main(args):
+    """Run the program."""
+
+    ds = read_data(args.input_files, args.var_name, dataset_name=args.dataset)
+    ds = subset_and_chunk(
+        ds,
+        args.var_name,
+        time_period=args.time_period,
+#        lon_chunk_size=args.lon_chunk_size,
+    )
 
     if args.base_period:
         start_date = parser.parse(args.base_period[0])
@@ -115,12 +136,13 @@ def main(args):
         slice_mode=args.slice_mode,
         base_period_time_range=base_period,
     )
-    index.attrs['history'] = get_new_log(args.in_files[0], ds.attrs['history'])
+    index.attrs['history'] = get_new_log(args.input_files[0], ds.attrs['history'])
 
     if args.drop_time_bounds:
         index = index.drop('time_bounds').drop('bounds')
         del index['time'].attrs['bounds']
-    index.to_netcdf(args.out_file)
+    index.to_netcdf(args.output_file)
+
 
 if __name__ == '__main__':
 
@@ -134,10 +156,10 @@ if __name__ == '__main__':
         argument_default=argparse.SUPPRESS,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
-    arg_parser.add_argument("in_files", type=str, nargs='*', help="input files")
+    arg_parser.add_argument("input_files", type=str, nargs='*', help="input files")
     arg_parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
     arg_parser.add_argument("var_name", type=str, help="variable name")
-    arg_parser.add_argument("out_file", type=str, help="output file name")
+    arg_parser.add_argument("output_file", type=str, help="output file name")
     arg_parser.add_argument(
         "--time_period",
         type=str,
@@ -182,7 +204,7 @@ if __name__ == '__main__':
         "--verbose",
         action="store_true",
         default=False,
-        help='Set logging level to DEBUG',
+        help='Set logging level to INFO',
     )
     arg_parser.add_argument(
         "--local_cluster",
@@ -196,7 +218,30 @@ if __name__ == '__main__':
         default=None,
         help='Number of workers for cluster [default lets dask decide]',
     )
+    arg_parser.add_argument(
+        "--dask_dir",
+        type=str,
+        default=None,
+        help='Directory where dask worker space files can be written. Required for local cluster.',
+    )
     args = arg_parser.parse_args()
+
+    log_level = logging.INFO if args.verbose else logging.WARNING
+    logging.basicConfig(level=log_level)
+
+    if args.local_cluster:
+        assert args.dask_dir, "Must provide --dask_dir for local cluster"
+        dask.config.set(temporary_directory=args.dask_dir)
+        cluster = LocalCluster(
+#            memory_limit='16GB',
+            n_workers=args.nworkers,
+#            threads_per_worker=8,
+        )
+        client = Client(cluster)
+        print("Watch progress at http://localhost:8787/status")
+    else:
+        dask.diagnostics.ProgressBar().register()
+
     with dask.diagnostics.ResourceProfiler() as rprof:
         main(args)
     if args.memory_vis:
