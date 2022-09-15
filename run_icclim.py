@@ -1,5 +1,6 @@
 """Command line program for calculating extremes indices."""
 
+import os
 import argparse
 import logging
 from dateutil import parser
@@ -71,7 +72,7 @@ def fix_metadata(ds, dataset, variable):
     return ds
 
 
-def subset_and_chunk(ds, var, time_period=None, lon_chunk_size=None):
+def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None):
     """Subset and chunk a dataset."""
 
     if time_period:
@@ -83,8 +84,8 @@ def subset_and_chunk(ds, var, time_period=None, lon_chunk_size=None):
 #        chunk_dict['lon'] = lon_chunk_size
 #    ds = ds.chunk(chunk_dict)
 
-#    if args.index_name in ['r95ptot', 'r99ptot']:
-#        ds = ds.chunk({'time': -1, 'lon': 1})
+    if index_name in ['r95ptot', 'r99ptot', 'wsdi']:
+        ds = ds.chunk({'time': -1, 'lon': 10, 'lat': 10})
 
     logging.info(f'Array size: {ds[var].shape}')
     logging.info(f'Chunk size: {ds[var].chunksizes}')
@@ -96,7 +97,7 @@ def read_data(infiles, variable_name, dataset_name=None):
     """Read the input data file/s."""
 
     if len(infiles) == 1:
-        ds = xr.open_dataset(infiles[0])
+        ds = xr.open_dataset(infiles[0], chunks='auto')
     else:
         ds = xr.open_mfdataset(infiles)
 
@@ -114,10 +115,29 @@ def read_data(infiles, variable_name, dataset_name=None):
 def main(args):
     """Run the program."""
 
+    assert not os.path.isfile(args.output_file), f'Output file {args.output_file} already exists. Delete before proceeding.'
+
+    if args.local_cluster:
+        assert args.dask_dir, "Must provide --dask_dir for local cluster"
+        dask.config.set(temporary_directory=args.dask_dir)
+        cluster = LocalCluster(
+#            memory_limit='16GB',
+            n_workers=1,
+            threads_per_worker=2,
+        )
+        client = Client(cluster)
+        print("Watch progress at http://localhost:8787/status")
+    else:
+        dask.diagnostics.ProgressBar().register()
+
+    log_level = logging.INFO if args.verbose else logging.WARNING
+    logging.basicConfig(level=log_level)
+
     ds = read_data(args.input_files, args.var_name, dataset_name=args.dataset)
     ds = subset_and_chunk(
         ds,
         args.var_name,
+        args.index_name,
         time_period=args.time_period,
 #        lon_chunk_size=args.lon_chunk_size,
     )
@@ -135,7 +155,11 @@ def main(args):
         var_name=args.var_name,
         slice_mode=args.slice_mode,
         base_period_time_range=base_period,
+        logs_verbosity='HIGH',
     )
+    if args.local_cluster:
+        index = index.persist()
+        progress(index)
     index.attrs['history'] = get_new_log(args.input_files[0], ds.attrs['history'])
 
     if args.drop_time_bounds:
@@ -225,22 +249,6 @@ if __name__ == '__main__':
         help='Directory where dask worker space files can be written. Required for local cluster.',
     )
     args = arg_parser.parse_args()
-
-    log_level = logging.INFO if args.verbose else logging.WARNING
-    logging.basicConfig(level=log_level)
-
-    if args.local_cluster:
-        assert args.dask_dir, "Must provide --dask_dir for local cluster"
-        dask.config.set(temporary_directory=args.dask_dir)
-        cluster = LocalCluster(
-#            memory_limit='16GB',
-            n_workers=args.nworkers,
-#            threads_per_worker=8,
-        )
-        client = Client(cluster)
-        print("Watch progress at http://localhost:8787/status")
-    else:
-        dask.diagnostics.ProgressBar().register()
 
     with dask.diagnostics.ResourceProfiler() as rprof:
         main(args)
