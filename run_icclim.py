@@ -9,7 +9,7 @@ import git
 import numpy as np
 import xarray as xr
 import icclim
-from icclim.models.ecad_indices import EcadIndex
+from icclim.ecad.ecad_indices import EcadIndexRegistry
 import dask.diagnostics
 from dask.distributed import Client, LocalCluster, progress
 import cmdline_provenance as cmdprov
@@ -79,13 +79,8 @@ def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None)
         start_date, end_date = time_period
         ds = ds.sel({'time': slice(start_date, end_date)})
 
-#    chunk_dict = {'time': -1}
-#    if lon_chunk_size:
-#        chunk_dict['lon'] = lon_chunk_size
-#    ds = ds.chunk(chunk_dict)
-
     if index_name in ['r95ptot', 'r99ptot', 'wsdi']:
-        ds = ds.chunk({'time': -1, 'lon': 10, 'lat': 10})
+        ds = ds.chunk({'time': -1, 'lon': 1, 'lat': 1})
 
     logging.info(f'Array size: {ds[var].shape}')
     logging.info(f'Chunk size: {ds[var].chunksizes}')
@@ -121,9 +116,9 @@ def main(args):
         assert args.dask_dir, "Must provide --dask_dir for local cluster"
         dask.config.set(temporary_directory=args.dask_dir)
         cluster = LocalCluster(
-#            memory_limit='16GB',
+            memory_limit='100GB',
             n_workers=1,
-            threads_per_worker=2,
+            threads_per_worker=1,
         )
         client = Client(cluster)
         print("Watch progress at http://localhost:8787/status")
@@ -139,7 +134,6 @@ def main(args):
         args.var_name,
         args.index_name,
         time_period=args.time_period,
-#        lon_chunk_size=args.lon_chunk_size,
     )
 
     if args.base_period:
@@ -169,20 +163,15 @@ def main(args):
 
 
 if __name__ == '__main__':
-
-    valid_indices = []
-    for index in EcadIndex:
-        if not index.group.name == 'COMPOUND':
-            valid_indices.append(index.short_name.lower())
-
+    valid_indices = [index.short_name.lower() for index in EcadIndexRegistry.values()]
     arg_parser = argparse.ArgumentParser(
         description=__doc__,
         argument_default=argparse.SUPPRESS,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
     arg_parser.add_argument("input_files", type=str, nargs='*', help="input files")
-    arg_parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
     arg_parser.add_argument("var_name", type=str, help="variable name")
+    arg_parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
     arg_parser.add_argument("output_file", type=str, help="output file name")
     arg_parser.add_argument(
         "--time_period",
@@ -203,7 +192,7 @@ if __name__ == '__main__':
         type=str,
         choices=['year', 'month', 'DJF', 'MAM', 'JJA', 'SON', 'ONDJFM', 'AMJJAS'],
         default='year',
-        help='Sampling frequency for index calculation',
+        help='Sampling frequency for index calculation [default=year]',
     )
     arg_parser.add_argument(
         "--dataset",
