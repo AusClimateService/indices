@@ -6,7 +6,7 @@ such as those used by the [ETCCDI](http://etccdi.pacificclimate.org/list_27_indi
 
 The program makes use of the [icclim](https://icclim.readthedocs.io/en/stable/) library.
 Detailed descriptions of each index are available in the
-icclim [API](https://icclim.readthedocs.io/en/stable/references/ecad_functions_api.html#module-icclim._generated_api) and
+icclim [API](https://icclim.readthedocs.io/en/stable/references/ecad_functions_api.html#module-icclim._generated_api)
 and an associated [ATBD](https://www.ecad.eu/documents/atbd.pdf).
 
 ## Python environment
@@ -47,7 +47,8 @@ Command line program for calculating extremes indices.
 
 positional arguments:
   input_files           input files
-  var_name              variable name {tg,tn,tx,dtr,etr,vdtr,su,tr,wsdi,tg90p,tn90p,tx90p,txx,tnx,csu,gd4,fd,cfd,hd17,id,tg10p,tn10p,tx10p,txn,tnn,csdi,cdd,prcptot,rr1,sdii,cwd,r10mm,r20mm,rx1day,rx5day,r75p,r75ptot,r95p,r95ptot,r99p,r99ptot,sd,sd1,sd5cm,sd50cm}
+  var_name              variable name
+ {tg,tn,tx,dtr,etr,vdtr,su,tr,wsdi,tg90p,tn90p,tx90p,txx,tnx,csu,gd4,fd,cfd,hd17,id,tg10p,tn10p,tx10p,txn,tnn,csdi,cdd,prcptot,rr1,sdii,cwd,r10mm,r20mm,rx1day,rx5day,r75p,r75ptot,r95p,r95ptot,r99p,r99ptot,sd,sd1,sd5cm,sd50cm}
                         index name
   output_file           output file name
 
