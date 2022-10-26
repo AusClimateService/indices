@@ -28,7 +28,7 @@ $ conda install -c conda-forge icclim cmdline_provenance gitpython
 ## Usage
 
 Running the script at the command line with the `-h` option explains the user options,
-including the very long list of indices that the script can calculate.
+including the very long list of indices that the script can calculate:
 
 ```bash
 $ python run_icclim.py -h
@@ -73,7 +73,8 @@ options:
 The most basic use of `run_icclim.py` requires passing the script the name/s of the input file/s,
 the name of the variable to access from that file/s,
 the name of the index to calculate,
-and the name of the output file:
+and the name of the output file.
+For example:
 
 ```
 $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/output/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/day/tasmax/tasmax_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_day_*.nc tasmax txx /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/climdex/txx/txx_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_year_197901-200112.nc --verbose
@@ -97,10 +98,10 @@ the `--verbose` flag has also been invoked so that the program prints its progre
 
 A small number of climate indices require calculations to be performed along the entire time axis.
 For instance, in the example below the `r95ptot` index requires calculation of the 95th percentile
-along the entire time axis of the 30 year base period.
+along the entire time axis:
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python /home/599/dbi599/indices/run_icclim.py precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr precip r95ptot /g/data/xv83/dbi599/indices/r95ptot_year_AGCD_v1_r005_1910-2021.nc --time_period 1900-01-01 2021-12-31 --base_period 1961-01-01 1990-12-31 --dataset AGCD --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python /home/599/dbi599/indices/run_icclim.py precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr precip r95ptot /g/data/xv83/dbi599/indices/r95ptot_year_AGCD_v1_r005_1910-2021.nc --time_period 1900-01-01 2021-12-31 --verbose
 ```
 
 Indices that involve calculations along the entire time axis are much more memory intensive.
@@ -112,4 +113,4 @@ The `run_icclim.py` script has a `--local_cluster` option that can be used
 (in conjunction with the `--nworkers` and `--nthreads` options)
 to launch and configure a local dask cluster.
 We are still figuring out the optimal local cluster settings for different use cases
-but will add advice to this documentation soon.
+and will add advice to this documentation soon.
