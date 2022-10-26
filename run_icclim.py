@@ -75,7 +75,13 @@ def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None)
         ds = ds.sel({'time': slice(start_date, end_date)})
 
     if index_name in ['r95ptot', 'r99ptot', 'wsdi']:
-        ds = ds.chunk({'time': -1, 'lon': 'auto', 'lat': 'auto'})
+        dims = ds[var].coords.dims
+        assert 'time' in dims
+        chunks = {'time': -1}
+        for dim in dims:
+            if not dim == 'time':
+                chunks[dim] = 'auto'
+        ds = ds.chunk(chunks)
 
     logging.info(f'Array size: {ds[var].shape}')
     logging.info(f'Chunk size: {ds[var].chunksizes}')
@@ -89,8 +95,7 @@ def read_data(infiles, variable_name):
     if len(infiles) == 1:
         ds = xr.open_dataset(infiles[0], chunks='auto')
     else:
-        ds = xr.open_mfdataset(infiles)
-
+        ds = xr.open_mfdataset(infiles, chunks='auto')
     ds = fix_metadata(ds, variable_name)
 
     try:
