@@ -14,13 +14,13 @@ If you're a member of the `xv83` project on NCI
 (i.e. if you're part of the Australian Climate Service),
 the easiest way to execute `run_icclim.py` is to run it with the version of Python
 installed at: `/g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python`.
-For example,
+For example:
 ```
 $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py -h
 ```
 
 If you'd like to run the script/s in your own Python environment,
-you'll need to install the following libraries using conda...
+you'll need to install the following libraries using conda:
 ```
 conda install -c conda-forge icclim cmdline_provenance gitpython
 ```
