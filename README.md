@@ -98,10 +98,10 @@ the `--verbose` flag has also been invoked so that the program prints its progre
 
 A small number of climate indices require calculations to be performed along the entire time axis.
 For instance, in the example below the `r95ptot` index requires calculation of the 95th percentile
-along the entire time axis:
+along the time axis for the entire 1900-2021 period:
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python /home/599/dbi599/indices/run_icclim.py precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr precip r95ptot /g/data/xv83/dbi599/indices/r95ptot_year_AGCD_v1_r005_1910-2021.nc --time_period 1900-01-01 2021-12-31 --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py /g/data/xv83/agcd-csiro/precip/daily/precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr precip r95ptot /g/data/xv83/dbi599/indices/r95ptot_year_AGCD_v1_r005_1900-2021.nc --time_period 1900-01-01 2021-12-31 --verbose
 ```
 
 Indices that involve calculations along the entire time axis are much more memory intensive.
