@@ -41,33 +41,28 @@ def get_new_log(infile, history):
     return new_log
 
 
-def fix_metadata(ds, dataset, variable):
-    """Apply dataset- and variable-specific metdata fixes.
+def fix_metadata(ds, variable):
+    """Ensure CF-compliance (which icclim requires)"""
 
-    icclim (using xclim under the hood) does CF-compliance checks
-      that some datasets fail
-    """
-
-    if (dataset == 'AGCD') and (variable == 'precip'):
-        ds['precip'].attrs = {
-            'standard_name': 'precipitation_flux',
-            'long_name': 'Precipitation',
-            'units': 'mm d-1',
-        }
-    elif (dataset == 'AGCD') and (variable == 'tmax'):
-        ds['tmax'].attrs = {
-            'standard_name': 'air_temperature',
-            'long_name': 'Daily Maximum Near-Surface Air Temperature',
-            'units': 'degC',
-        }
-    elif (dataset == 'AGCD') and (variable == 'tmin'):
-        ds['tmin'].attrs = {
-            'standard_name': 'air_temperature',
-            'long_name': 'Daily Minimum Near-Surface Air Temperature',
-            'units': 'degC',
-        }
+    if variable in ['precip', 'pr']:
+        standard_name = 'precipitation_flux'
+        long_name = 'Precipitation'
+    elif variable in ['tmax', 'tasmax']:
+        standard_name = 'air_temperature',
+        long_name = 'Daily Maximum Near-Surface Air Temperature'
+    elif variable in ['tmin', 'tasmin']:
+        standard_name = 'air_temperature',
+        long_name = 'Daily Minimum Near-Surface Air Temperature',
     else:
-        ValueError(f'No metadata fixes defined for {dataset} {variable}')
+        ValueError(f'No metadata fixes defined for {variable}')
+    ds[variable].attrs['standard_name'] = standard_name
+    ds[variable].attrs['long_name'] = long_name        
+
+    units = ds[variable].attrs['units']
+    if units in ['degrees_Celsius']:
+        ds[variable].attrs['units'] = 'degC' 
+    elif units in ['mm']:
+        ds[variable].attrs['units'] = 'mm d-1'
 
     return ds
 
@@ -80,7 +75,7 @@ def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None)
         ds = ds.sel({'time': slice(start_date, end_date)})
 
     if index_name in ['r95ptot', 'r99ptot', 'wsdi']:
-        ds = ds.chunk({'time': -1, 'lon': 1, 'lat': 1})
+        ds = ds.chunk({'time': -1, 'lon': 'auto', 'lat': 'auto'})
 
     logging.info(f'Array size: {ds[var].shape}')
     logging.info(f'Chunk size: {ds[var].chunksizes}')
@@ -88,7 +83,7 @@ def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None)
     return ds
 
 
-def read_data(infiles, variable_name, dataset_name=None):
+def read_data(infiles, variable_name):
     """Read the input data file/s."""
 
     if len(infiles) == 1:
@@ -96,8 +91,7 @@ def read_data(infiles, variable_name, dataset_name=None):
     else:
         ds = xr.open_mfdataset(infiles)
 
-    if dataset_name:
-        ds = fix_metadata(ds, dataset_name, variable_name)
+    ds = fix_metadata(ds, variable_name)
 
     try:
         ds = ds.drop('height')
@@ -110,15 +104,16 @@ def read_data(infiles, variable_name, dataset_name=None):
 def main(args):
     """Run the program."""
 
-    assert not os.path.isfile(args.output_file), f'Output file {args.output_file} already exists. Delete before proceeding.'
+    assert not os.path.isfile(args.output_file), \
+        f'Output file {args.output_file} already exists. Delete before proceeding.'
 
     if args.local_cluster:
         assert args.dask_dir, "Must provide --dask_dir for local cluster"
         dask.config.set(temporary_directory=args.dask_dir)
         cluster = LocalCluster(
-            memory_limit='100GB',
-            n_workers=1,
-            threads_per_worker=1,
+            memory_limit='auto',
+            n_workers=args.nworkers,
+            threads_per_worker=args.nthreads,
         )
         client = Client(cluster)
         print("Watch progress at http://localhost:8787/status")
@@ -128,7 +123,7 @@ def main(args):
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level)
 
-    ds = read_data(args.input_files, args.var_name, dataset_name=args.dataset)
+    ds = read_data(args.input_files, args.var_name)
     ds = subset_and_chunk(
         ds,
         args.var_name,
@@ -151,6 +146,7 @@ def main(args):
         base_period_time_range=base_period,
         logs_verbosity='HIGH',
     )
+
     if args.local_cluster:
         index = index.persist()
         progress(index)
@@ -195,13 +191,6 @@ if __name__ == '__main__':
         help='Sampling frequency for index calculation [default=year]',
     )
     arg_parser.add_argument(
-        "--dataset",
-        type=str,
-        choices=['AGCD'],
-        default=None,
-        help='Apply dataset and variable specific metadata fixes for CF compliance',
-    )
-    arg_parser.add_argument(
         "--drop_time_bounds",
         action='store_true',
         default=False,
@@ -229,13 +218,19 @@ if __name__ == '__main__':
         "--nworkers",
         type=int,
         default=None,
-        help='Number of workers for cluster [default lets dask decide]',
+        help='Number of workers for local dask cluster',
+    )
+    arg_parser.add_argument(
+        "--nthreads",
+        type=int,
+        default=None,
+        help='Number of threads per worker for local dask cluster',
     )
     arg_parser.add_argument(
         "--dask_dir",
         type=str,
         default=None,
-        help='Directory where dask worker space files can be written. Required for local cluster.',
+        help='Directory where dask worker space files can be written. Required for local dask cluster.',
     )
     args = arg_parser.parse_args()
 
