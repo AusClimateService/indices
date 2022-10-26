@@ -12,8 +12,8 @@ and an associated [ATBD](https://www.ecad.eu/documents/atbd.pdf).
 
 If you're a member of the `xv83` project on NCI
 (i.e. if you're part of the Australian Climate Service),
-the easiest way to execute `run_icclim.py` is to run it with the version of Python
-installed at: `/g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python`.
+the easiest way to execute `run_icclim.py` is to run it at the command line
+with the version of Python installed at: `/g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python`.
 For example:
 ```
 $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py -h
@@ -22,7 +22,7 @@ $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py -h
 If you'd like to run the script/s in your own Python environment,
 you'll need to install the following libraries using conda:
 ```
-conda install -c conda-forge icclim cmdline_provenance gitpython
+$ conda install -c conda-forge icclim cmdline_provenance gitpython
 ```
 
 ## Usage
@@ -76,7 +76,7 @@ the name of the index to calculate,
 and the name of the output file:
 
 ```
-/g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/output/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/day/tasmax/tasmax_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_day_*.nc tasmax txx /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/climdex/txx/txx_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_year_197901-200112.nc --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/output/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/day/tasmax/tasmax_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_day_*.nc tasmax txx /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/climdex/txx/txx_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_year_197901-200112.nc --verbose
 ```
 
 In the example above,
@@ -100,7 +100,7 @@ For instance, in the example below the `r95ptot` index requires calculation of t
 along the entire time axis of the 30 year base period.
 
 ```
-/g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python /home/599/dbi599/indices/run_icclim.py precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr precip r95ptot /g/data/xv83/dbi599/indices/r95ptot_year_AGCD_v1_r005_1910-2021.nc --time_period 1900-01-01 2021-12-31 --base_period 1961-01-01 1990-12-31 --dataset AGCD --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python /home/599/dbi599/indices/run_icclim.py precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr precip r95ptot /g/data/xv83/dbi599/indices/r95ptot_year_AGCD_v1_r005_1910-2021.nc --time_period 1900-01-01 2021-12-31 --base_period 1961-01-01 1990-12-31 --dataset AGCD --verbose
 ```
 
 Indices that involve calculations along the entire time axis are much more memory intensive.
