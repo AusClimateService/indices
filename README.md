@@ -87,10 +87,17 @@ $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py txx /g/dat
 In the example above,
 the `--verbose` flag has also been invoked so that the program prints its progress to the screen.
 
+#### Example 2
+
 For a bivariate index like dtr (mean diurnal temperature range),
 you need to use invoke the `--input_files` and `--variable` options twice.
 The first time to specify the maximum temperature files and variable name,
 and the second time to specify the minimum temperature files and variable name.
+For example:
+
+```
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py dtr /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-r005/none/BOM-AGCD/historical/v1/none/none/climdex/dtr/dtr_AUS-r005_BOM-AGCD_historical_v1_year_191001-202112.nc  --input_files /g/data/xv83/agcd-csiro/tmax/daily/tmax_AGCD-CSIRO_r005_*.nc --variable tmax --input_files /g/data/xv83/agcd-csiro/tmin/daily/tmin_AGCD-CSIRO_r005_*.nc --variable tmin --time_period 1910-01-01 2021-12-31 --verbose
+```
 
 > **CF-compliance**
 >
@@ -103,14 +110,14 @@ and the second time to specify the minimum temperature files and variable name.
 > you can start a new issue [here](https://github.com/AusClimateService/indices/issues)
 > describing the error and we can add appropriate metadata handling to fix the problem.
 
-#### Example 2
+#### Example 3
 
 A small number of climate indices require calculations to be performed along the entire time axis.
 For instance, in the example below the `r95ptot` index requires calculation of the 95th percentile
 along the time axis for the entire 1900-2021 period:
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r95ptot /g/data/xv83/dbi599/indices/r95ptot_year_AGCD_v1_r005_1900-2021.nc --input_files /g/data/xv83/agcd-csiro/precip/daily/precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr --variable precip --time_period 1900-01-01 2021-12-31 --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r95ptot /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-r005/none/BOM-AGCD/historical/v1/none/none/climdex/r95ptot/r95ptot_AUS-r005_BOM-AGCD_historical_v1_year_190001-202112.nc --input_files /g/data/xv83/agcd-csiro/precip/daily/precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr --variable precip --time_period 1900-01-01 2021-12-31 --verbose
 ```
 
 Indices that involve calculations along the entire time axis are much more memory intensive.
@@ -122,4 +129,7 @@ The `run_icclim.py` script has a `--local_cluster` option that can be used
 (in conjunction with the `--nworkers` and `--nthreads` options)
 to launch and configure a local dask cluster.
 We are still figuring out the optimal local cluster settings for different use cases
-and will add advice to this documentation soon.
+and will add advice to this documentation soon,
+but in general the computation will be fastest if you simply allocate a large amount of memory to the job
+(e.g. using the `largemem` job queue on NCI)
+as opposed to fiddling around with a local dask cluster.
