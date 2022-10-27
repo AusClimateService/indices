@@ -15,6 +15,29 @@ from dask.distributed import Client, LocalCluster, progress
 import cmdline_provenance as cmdprov
 
 
+bivariate_indices = ['dtr', 'etr', 'vdtr', 'cd', 'cw', 'wd', 'ww']
+no_time_chunk_indices = [
+    'wsdi',
+    'tg90p',
+    'tn90p',
+    'tx90p',
+    'tg10p',
+    'tn10p',
+    'tx10p',
+    'csdi',
+    'r75p',
+    'p75ptot',
+    'r95p',
+    'r95ptot',
+    'r99p',
+    'r99ptot',
+    'cd',
+    'cw',
+    'wd',
+    'ww',
+]
+    
+
 def profiling_stats(rprof):
     """Record profiling information"""
 
@@ -25,7 +48,7 @@ def profiling_stats(rprof):
     logging.info(f'Peak CPU usage: {max_cpus}%')
 
 
-def get_new_log(infile, history):
+def get_new_log():
     """Generate command log for output file."""
 
     try:
@@ -33,10 +56,7 @@ def get_new_log(infile, history):
         repo_url = repo.remotes[0].url.split(".git")[0]
     except (git.exc.InvalidGitRepositoryError, NameError):
         repo_url = None
-    new_log = cmdprov.new_log(
-        infile_logs = {infile: history},
-        code_url=repo_url,
-    )
+    new_log = cmdprov.new_log(code_url=repo_url)
 
     return new_log
 
@@ -74,7 +94,7 @@ def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None)
         start_date, end_date = time_period
         ds = ds.sel({'time': slice(start_date, end_date)})
 
-    if index_name in ['r95ptot', 'r99ptot', 'wsdi']:
+    if index_name in no_time_chunk_indices:
         dims = ds[var].coords.dims
         assert 'time' in dims
         chunks = {'time': -1}
@@ -103,20 +123,22 @@ def read_data(infiles, variable_name):
     except ValueError:
         pass
 
+    try:
+        ds = ds.drop('time_bnds')
+    except ValueError:
+        pass
+
     return ds
 
 
 def main(args):
     """Run the program."""
 
-    assert not os.path.isfile(args.output_file), \
-        f'Output file {args.output_file} already exists. Delete before proceeding.'
-
     if args.local_cluster:
         assert args.dask_dir, "Must provide --dask_dir for local cluster"
         dask.config.set(temporary_directory=args.dask_dir)
         cluster = LocalCluster(
-            memory_limit='auto',
+            memory_limit=args.memory_limit,
             n_workers=args.nworkers,
             threads_per_worker=args.nthreads,
         )
@@ -128,14 +150,6 @@ def main(args):
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level)
 
-    ds = read_data(args.input_files, args.var_name)
-    ds = subset_and_chunk(
-        ds,
-        args.var_name,
-        args.index_name,
-        time_period=args.time_period,
-    )
-
     if args.base_period:
         start_date = parser.parse(args.base_period[0])
         end_date = parser.parse(args.base_period[1])
@@ -143,10 +157,16 @@ def main(args):
     else:
         base_period = None
 
+    datasets = []
+    for infiles, var in zip(args.input_files, args.variable):
+        ds = read_data(infiles, var)
+        ds = subset_and_chunk(ds, var, args.index_name, time_period=args.time_period)
+        datasets.append(ds)
+
     index = icclim.index(
-        in_files=ds,
+        in_files=datasets,
         index_name=args.index_name,
-        var_name=args.var_name,
+        var_name=args.variable,
         slice_mode=args.slice_mode,
         base_period_time_range=base_period,
         logs_verbosity='HIGH',
@@ -155,7 +175,7 @@ def main(args):
     if args.local_cluster:
         index = index.persist()
         progress(index)
-    index.attrs['history'] = get_new_log(args.input_files[0], ds.attrs['history'])
+    index.attrs['history'] = get_new_log()
 
     if args.drop_time_bounds:
         index = index.drop('time_bounds').drop('bounds')
@@ -170,10 +190,21 @@ if __name__ == '__main__':
         argument_default=argparse.SUPPRESS,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
-    arg_parser.add_argument("input_files", type=str, nargs='*', help="input files")
-    arg_parser.add_argument("var_name", type=str, help="variable name")
     arg_parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
     arg_parser.add_argument("output_file", type=str, help="output file name")
+    arg_parser.add_argument(
+        "--input_files",
+        type=str,
+        nargs='*',
+        action='append',
+        help="input files for a particular variable",
+    )
+    arg_parser.add_argument(
+        "--variable",
+        type=str,
+        action='append',
+        help="variable to process from input files",
+    )
     arg_parser.add_argument(
         "--time_period",
         type=str,
@@ -202,12 +233,6 @@ if __name__ == '__main__':
         help='Drop the time bounds from output file',
     )
     arg_parser.add_argument(
-        "--memory_vis",
-        action="store_true",
-        default=False,
-        help='Visualise memory and CPU usage (creates profile.html)',
-    )
-    arg_parser.add_argument(
         "--verbose",
         action="store_true",
         default=False,
@@ -232,6 +257,12 @@ if __name__ == '__main__':
         help='Number of threads per worker for local dask cluster',
     )
     arg_parser.add_argument(
+        "--memory_limit",
+        type=str,
+        default='auto',
+        help='Memory limit for local dask cluster',
+    )
+    arg_parser.add_argument(
         "--dask_dir",
         type=str,
         default=None,
@@ -239,8 +270,20 @@ if __name__ == '__main__':
     )
     args = arg_parser.parse_args()
 
+    assert not os.path.isfile(args.output_file), \
+        f'Output file {args.output_file} already exists. Delete before proceeding.'
+
+    if args.index_name in bivariate_indices:
+        assert len(args.variable) == 2, \
+            f'{args.index_name} requires two variables' 
+        assert len(args.input_files) == 2, \
+            f'{args.index_name} requires two sets of input file/s (one for each variable)'
+    else:
+        assert len(args.variable) == 1, \
+            f'{args.index_name} requires one variable' 
+        assert len(args.input_files) == 1, \
+            f'{args.index_name} requires one set of input file/s'
+
     with dask.diagnostics.ResourceProfiler() as rprof:
         main(args)
-    if args.memory_vis:
-        rprof.visualize(filename='profile.html')
     profiling_stats(rprof)
