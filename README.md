@@ -35,11 +35,11 @@ $ python run_icclim.py -h
 ```
 
 ```
-usage: run_icclim.py [-h] [--input_files [INPUT_FILES ...]] [--variable VARIABLE]
+usage: run_icclim.py [-h] [--input_files [INPUT_FILES ...]] [--variable VARIABLE] [--time_agg {min,mean,max}]
                      [--time_period TIME_PERIOD TIME_PERIOD] [--base_period BASE_PERIOD BASE_PERIOD]
-                     [--slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}] [--drop_time_bounds] [--verbose]
-                     [--local_cluster] [--nworkers NWORKERS] [--nthreads NTHREADS] [--memory_limit MEMORY_LIMIT]
-                     [--dask_dir DASK_DIR]
+                     [--slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}] [--verbose] [--local_cluster]
+                     [--nworkers NWORKERS] [--nthreads NTHREADS] [--memory_limit MEMORY_LIMIT] [--dask_dir DASK_DIR]
+                     [--drop_time_bounds]
                      {tg,tn,tx,dtr,etr,vdtr,su,tr,wsdi,tg90p,tn90p,tx90p,txx,tnx,csu,gd4,fd,cfd,hd17,id,tg10p,tn10p,tx10p,txn,tnn,csdi,cdd,prcptot,rr1,sdii,cwd,rr,r10mm,r20mm,rx1day,rx5day,r75p,r75ptot,r95p,r95ptot,r99p,r99ptot,sd,sd1,sd5cm,sd50cm,cd,cw,wd,ww}
                      output_file
 
@@ -55,13 +55,14 @@ options:
   --input_files [INPUT_FILES ...]
                         input files for a particular variable
   --variable VARIABLE   variable to process from input files
+  --time_agg {min,mean,max}
+                        temporal aggregation to apply to input files (used to convert hourly to daily)
   --time_period TIME_PERIOD TIME_PERIOD
                         Time period in YYYY-MM-DD format
   --base_period BASE_PERIOD BASE_PERIOD
                         Base period (for percentile calculations) in YYYY-MM-DD format
   --slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}
                         Sampling frequency for index calculation [default=year]
-  --drop_time_bounds    Drop the time bounds from output file
   --verbose             Set logging level to INFO
   --local_cluster       Use a local dask cluster
   --nworkers NWORKERS   Number of workers for local dask cluster
@@ -69,7 +70,8 @@ options:
   --memory_limit MEMORY_LIMIT
                         Memory limit for local dask cluster
   --dask_dir DASK_DIR   Directory where dask worker space files can be written. Required for local dask cluster.
-```
+  --drop_time_bounds    Drop the time bounds from output file
+  ```
 
 #### Example 1: Simple indices
 

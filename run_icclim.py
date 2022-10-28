@@ -86,6 +86,11 @@ def get_new_log():
 
 def fix_input_metadata(ds, variable, time_agg):
     """Ensure CF-compliance of input data file (which icclim requires)"""
+
+    if 'latitude' in ds.dims:
+        ds = ds.rename({'latitude': 'lat'})
+    if 'longitude' in ds.dims:
+        ds = ds.rename({'longitude': 'lon'})
     
     if variable in ['pr', 'precip', 'mtpr']:
         cf_var = 'pr'
@@ -164,6 +169,7 @@ def read_data(infiles, variable_name, time_period=None, time_agg=None):
     
     time_freq = xr.infer_freq(ds['time'])
     if time_agg and (time_freq != 'D'):
+        logging.info(f'resampling from {time_freq} to daily {time_agg}')
         if time_agg == 'mean':
             ds = ds.resample(time='1D').mean(dim='time')
         elif time_agg == 'min':
