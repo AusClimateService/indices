@@ -71,7 +71,7 @@ options:
   --dask_dir DASK_DIR   Directory where dask worker space files can be written. Required for local dask cluster.
 ```
 
-#### Example 1
+#### Example 1: Simple indices
 
 The most basic use of `run_icclim.py` requires passing the script 
 the name of the index to calculate,
@@ -87,7 +87,22 @@ $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py txx /g/dat
 In the example above,
 the `--verbose` flag has also been invoked so that the program prints its progress to the screen.
 
-#### Example 2
+#### Example 2: Sub-daily input data
+
+All the icclim climate indices are calculated from daily data.
+If you want to input sub-daily (e.g. hourly) data instead,
+you need to use the `--time_agg` option to specify how to temporally aggregate the data.
+For instance,
+
+```
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py tnn /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/GLOBAL-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/tnn/tnn_GLOBAL-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc --variable t2m --time_agg min --time_period 1959-01-01 2021-12-31 --verbose
+```
+
+```
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r10mm /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/GLOBAL-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/r10mm/r10mm_GLOBAL-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/mtpr/*/*.nc --variable mtpr --time_agg mean --time_period 1959-01-01 2021-12-31 --verbose
+```
+
+#### Example 3: Multi-variate indices
 
 For a bivariate index like dtr (mean diurnal temperature range),
 you need to use invoke the `--input_files` and `--variable` options twice.
@@ -110,7 +125,8 @@ $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py dtr /g/dat
 > you can start a new issue [here](https://github.com/AusClimateService/indices/issues)
 > describing the error and we can add appropriate metadata handling to fix the problem.
 
-#### Example 3
+
+#### Example 4: "Along the time axis" indices
 
 A small number of climate indices require calculations to be performed along the entire time axis.
 For instance, in the example below the `r95ptot` index requires calculation of the 95th percentile

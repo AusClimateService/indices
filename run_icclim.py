@@ -15,7 +15,18 @@ from dask.distributed import Client, LocalCluster, progress
 import cmdline_provenance as cmdprov
 
 
-bivariate_indices = ['dtr', 'etr', 'vdtr', 'cd', 'cw', 'wd', 'ww']
+valid_indices = {
+    index.short_name.lower(): index.short_name for index in EcadIndexRegistry.values()
+}
+bivariate_indices = [
+    'dtr',
+    'etr',
+    'vdtr',
+    'cd',
+    'cw',
+    'wd',
+    'ww'
+]
 no_time_chunk_indices = [
     'wsdi',
     'tg90p',
@@ -36,6 +47,18 @@ no_time_chunk_indices = [
     'wd',
     'ww',
 ]
+standard_names = {
+    'pr': 'precipitation_flux',
+    'tas': 'air_temperature',
+    'tasmin': 'air_temperature',
+    'tasmax': 'air_temperature',
+}
+long_names = {
+    'pr': 'Precipitation',
+    'tas': 'Near-Surface Air Temperature',
+    'tasmin': 'Daily Minimum Near-Surface Air Temperature',
+    'tasmax': 'Daily Maximum Near-Surface Air Temperature',
+}
     
 
 def profiling_stats(rprof):
@@ -61,38 +84,56 @@ def get_new_log():
     return new_log
 
 
-def fix_metadata(ds, variable):
-    """Ensure CF-compliance (which icclim requires)"""
-
-    if variable in ['precip', 'pr']:
-        standard_name = 'precipitation_flux'
-        long_name = 'Precipitation'
-    elif variable in ['tmax', 'tasmax']:
-        standard_name = 'air_temperature',
-        long_name = 'Daily Maximum Near-Surface Air Temperature'
-    elif variable in ['tmin', 'tasmin']:
-        standard_name = 'air_temperature',
-        long_name = 'Daily Minimum Near-Surface Air Temperature',
+def fix_input_metadata(ds, variable, time_agg):
+    """Ensure CF-compliance of input data file (which icclim requires)"""
+    
+    if variable in ['pr', 'precip', 'mtpr']:
+        cf_var = 'pr'
+    elif variable in ['tasmax', 'tmax']:
+        cf_var = 'tasmax'
+    elif variable in ['tasmin', 'tmin']:
+        cf_var = 'tasmin'
+    elif variable in ['tas', 't2m']:
+        if time_agg == 'max':
+            cf_var = 'tasmax'
+        elif time_agg == 'min':
+            cf_var = 'tasmin'
+        else:
+            cf_var = 'tas'
     else:
         ValueError(f'No metadata fixes defined for {variable}')
-    ds[variable].attrs['standard_name'] = standard_name
-    ds[variable].attrs['long_name'] = long_name        
+    ds = ds.rename({variable: cf_var})
+    
+    ds[cf_var].attrs['standard_name'] = standard_names[cf_var]
+    ds[cf_var].attrs['long_name'] = long_names[cf_var]        
 
-    units = ds[variable].attrs['units']
+    units = ds[cf_var].attrs['units']
     if units in ['degrees_Celsius']:
-        ds[variable].attrs['units'] = 'degC' 
+        ds[cf_var].attrs['units'] = 'degC' 
     elif units in ['mm']:
-        ds[variable].attrs['units'] = 'mm d-1'
+        ds[cf_var].attrs['units'] = 'mm d-1'
 
-    return ds
+    return ds, cf_var
 
 
-def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None):
-    """Subset and chunk a dataset."""
+def fix_output_metadata(index_ds, index_name_lower, drop_time_bounds=False):
+    """Make edits to output metadata"""
+    
+    index_ds.attrs['history'] = get_new_log()
+    
+    index_name_upper = valid_indices[index_name_lower]
+    del index_ds[index_name_upper].attrs['history']
+    del index_ds[index_name_upper].attrs['cell_methods']
+    
+    if drop_time_bounds:
+        index_ds = index_ds.drop('time_bounds').drop('bounds')
+        del index_ds['time'].attrs['bounds']
+    
+    return index_ds
 
-    if time_period:
-        start_date, end_date = time_period
-        ds = ds.sel({'time': slice(start_date, end_date)})
+
+def chunk_data(ds, var, index_name, lon_chunk_size=None):
+    """Chunk a dataset."""
 
     if index_name in no_time_chunk_indices:
         dims = ds[var].coords.dims
@@ -109,15 +150,31 @@ def subset_and_chunk(ds, var, index_name, time_period=None, lon_chunk_size=None)
     return ds
 
 
-def read_data(infiles, variable_name):
+def read_data(infiles, variable_name, time_period=None, time_agg=None):
     """Read the input data file/s."""
 
     if len(infiles) == 1:
-        ds = xr.open_dataset(infiles[0], chunks='auto')
+        ds = xr.open_dataset(infiles[0], chunks='auto', mask_and_scale=True)
     else:
-        ds = xr.open_mfdataset(infiles, chunks='auto')
-    ds = fix_metadata(ds, variable_name)
+        ds = xr.open_mfdataset(infiles, chunks='auto', mask_and_scale=True)
 
+    if time_period:
+        start_date, end_date = time_period
+        ds = ds.sel({'time': slice(start_date, end_date)})
+    
+    time_freq = xr.infer_freq(ds['time'])
+    if time_agg and (time_freq != 'D'):
+        if time_agg == 'mean':
+            ds = ds.resample(time='1D').mean(dim='time')
+        elif time_agg == 'min':
+            ds = ds.resample(time='1D').mean(dim='time')
+        elif time_agg == 'max':
+            ds = ds.resample(time='1D').mean(dim='time')
+        time_freq = xr.infer_freq(ds['time'])
+    assert time_freq == 'D', "Data must be daily timescale"
+
+    ds, cf_var = fix_input_metadata(ds, variable_name, time_agg)
+    
     try:
         ds = ds.drop('height')
     except ValueError:
@@ -128,7 +185,7 @@ def read_data(infiles, variable_name):
     except ValueError:
         pass
 
-    return ds
+    return ds, cf_var
 
 
 def main(args):
@@ -158,15 +215,21 @@ def main(args):
         base_period = None
 
     datasets = []
-    for infiles, var in zip(args.input_files, args.variable):
-        ds = read_data(infiles, var)
-        ds = subset_and_chunk(ds, var, args.index_name, time_period=args.time_period)
+    variables = []
+    ndatasets = len(args.variable)
+    for dsnum in range(ndatasets):
+        infiles = args.input_files[dsnum]
+        var = args.variable[dsnum]
+        time_agg = args.time_agg[dsnum] if args.time_agg else None
+        ds, cf_var = read_data(infiles, var, time_period=args.time_period, time_agg=time_agg)
+        ds = chunk_data(ds, cf_var, args.index_name)
         datasets.append(ds)
+        variables.append(cf_var)
 
     index = icclim.index(
         in_files=datasets,
         index_name=args.index_name,
-        var_name=args.variable,
+        var_name=variables,
         slice_mode=args.slice_mode,
         base_period_time_range=base_period,
         logs_verbosity='HIGH',
@@ -175,22 +238,22 @@ def main(args):
     if args.local_cluster:
         index = index.persist()
         progress(index)
-    index.attrs['history'] = get_new_log()
 
-    if args.drop_time_bounds:
-        index = index.drop('time_bounds').drop('bounds')
-        del index['time'].attrs['bounds']
+    index = fix_output_metadata(
+        index, args.index_name, drop_time_bounds=args.drop_time_bounds
+    )
     index.to_netcdf(args.output_file)
 
 
 if __name__ == '__main__':
-    valid_indices = [index.short_name.lower() for index in EcadIndexRegistry.values()]
     arg_parser = argparse.ArgumentParser(
         description=__doc__,
         argument_default=argparse.SUPPRESS,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
-    arg_parser.add_argument("index_name", type=str, choices=valid_indices, help="index name")         
+    arg_parser.add_argument(
+        "index_name", type=str, choices=list(valid_indices.keys()), help="index name"
+    )         
     arg_parser.add_argument("output_file", type=str, help="output file name")
     arg_parser.add_argument(
         "--input_files",
@@ -204,6 +267,14 @@ if __name__ == '__main__':
         type=str,
         action='append',
         help="variable to process from input files",
+    )
+    arg_parser.add_argument(
+        "--time_agg",
+        type=str,
+        action='append',
+        choices=('min', 'mean', 'max'),
+        default=None,
+        help="temporal aggregation to apply to input files (used to convert hourly to daily)",
     )
     arg_parser.add_argument(
         "--time_period",
@@ -225,12 +296,6 @@ if __name__ == '__main__':
         choices=['year', 'month', 'DJF', 'MAM', 'JJA', 'SON', 'ONDJFM', 'AMJJAS'],
         default='year',
         help='Sampling frequency for index calculation [default=year]',
-    )
-    arg_parser.add_argument(
-        "--drop_time_bounds",
-        action='store_true',
-        default=False,
-        help='Drop the time bounds from output file',
     )
     arg_parser.add_argument(
         "--verbose",
@@ -267,6 +332,12 @@ if __name__ == '__main__':
         type=str,
         default=None,
         help='Directory where dask worker space files can be written. Required for local dask cluster.',
+    )
+    arg_parser.add_argument(
+        "--drop_time_bounds",
+        action='store_true',
+        default=False,
+        help='Drop the time bounds from output file',
     )
     args = arg_parser.parse_args()
 
