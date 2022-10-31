@@ -137,7 +137,7 @@ def fix_output_metadata(index_ds, index_name_lower, drop_time_bounds=False):
     return index_ds
 
 
-def chunk_data(ds, var, index_name, lon_chunk_size=None):
+def chunk_data(ds, var, index_name):
     """Chunk a dataset."""
 
     if index_name in no_time_chunk_indices:
@@ -173,9 +173,9 @@ def read_data(infiles, variable_name, time_period=None, time_agg=None):
         if time_agg == 'mean':
             ds = ds.resample(time='1D').mean(dim='time')
         elif time_agg == 'min':
-            ds = ds.resample(time='1D').mean(dim='time')
+            ds = ds.resample(time='1D').min(dim='time')
         elif time_agg == 'max':
-            ds = ds.resample(time='1D').mean(dim='time')
+            ds = ds.resample(time='1D').max(dim='time')
         time_freq = xr.infer_freq(ds['time'])
     assert time_freq == 'D', "Data must be daily timescale"
 
