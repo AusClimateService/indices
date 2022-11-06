@@ -10,6 +10,7 @@ import numpy as np
 import xarray as xr
 import icclim
 from icclim.ecad.ecad_indices import EcadIndexRegistry
+from clisops.core.subset import subset_bbox
 import dask.diagnostics
 from dask.distributed import Client, LocalCluster, progress
 import cmdline_provenance as cmdprov
@@ -155,7 +156,7 @@ def chunk_data(ds, var, index_name):
     return ds
 
 
-def read_data(infiles, variable_name, time_period=None, time_agg=None):
+def read_data(infiles, variable_name, start_date=None, end_date=None, lat_bnds=None, lon_bnds=None, time_agg=None):
     """Read the input data file/s."""
 
     if len(infiles) == 1:
@@ -163,9 +164,7 @@ def read_data(infiles, variable_name, time_period=None, time_agg=None):
     else:
         ds = xr.open_mfdataset(infiles, chunks='auto', mask_and_scale=True)
 
-    if time_period:
-        start_date, end_date = time_period
-        ds = ds.sel({'time': slice(start_date, end_date)})
+    ds = subset_bbox(ds, start_date=start_date, end_date=end_date, lat_bnds=lat_bnds, lon_bnds=lon_bnds)
     
     time_freq = xr.infer_freq(ds['time'])
     if time_agg and (time_freq != 'D'):
@@ -227,7 +226,15 @@ def main(args):
         infiles = args.input_files[dsnum]
         var = args.variable[dsnum]
         time_agg = args.time_agg[dsnum] if args.time_agg else None
-        ds, cf_var = read_data(infiles, var, time_period=args.time_period, time_agg=time_agg)
+        ds, cf_var = read_data(
+            infiles,
+            var,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            lat_bnds=args.lat_bnds,
+            lon_bnds=args.lon_bnds,
+            time_agg=time_agg,
+        )
         ds = chunk_data(ds, cf_var, args.index_name)
         datasets.append(ds)
         variables.append(cf_var)
@@ -283,11 +290,30 @@ if __name__ == '__main__':
         help="temporal aggregation to apply to input files (used to convert hourly to daily)",
     )
     arg_parser.add_argument(
-        "--time_period",
+        "--start_date",
         type=str,
+        default=None,
+        help='Start date in YYYY, YYYY-MM or YYYY-MM-DD format',
+    )
+    arg_parser.add_argument(
+        "--end_date",
+        type=str,
+        default=None,
+        help='Start date in YYYY, YYYY-MM or YYYY-MM-DD format',
+    )
+    arg_parser.add_argument(
+        "--lat_bnds",
+        type=float,
         nargs=2,
         default=None,
-        help='Time period in YYYY-MM-DD format',
+        help='Latitude bounds',
+    )
+    arg_parser.add_argument(
+        "--lon_bnds",
+        type=float,
+        nargs=2,
+        default=None,
+        help='Longitude bounds',
     )
     arg_parser.add_argument(
         "--base_period",
