@@ -164,7 +164,10 @@ def read_data(infiles, variable_name, start_date=None, end_date=None, lat_bnds=N
     else:
         ds = xr.open_mfdataset(infiles, chunks='auto', mask_and_scale=True)
 
-    ds = subset_bbox(ds, start_date=start_date, end_date=end_date, lat_bnds=lat_bnds, lon_bnds=lon_bnds)
+    subset_kwargs = {'start_date': start_date, 'end_date': end_date, 'lat_bnds': lat_bnds}
+    if lon_bnds:
+        subset_kwargs['lon_bnds'] = lon_bnds
+    ds = subset_bbox(ds, **subset_kwargs)
     
     time_freq = xr.infer_freq(ds['time'])
     if time_agg and (time_freq != 'D'):
