@@ -93,13 +93,13 @@ def fix_input_metadata(ds, variable, time_agg):
     if 'longitude' in ds.dims:
         ds = ds.rename({'longitude': 'lon'})
     
-    if variable in ['pr', 'precip', 'mtpr']:
+    if variable in ['pr', 'precip', 'mtpr', 'tp']:
         cf_var = 'pr'
-    elif variable in ['tasmax', 'tmax']:
+    elif variable in ['tasmax', 'tmax', 'mx2t']:
         cf_var = 'tasmax'
-    elif variable in ['tasmin', 'tmin']:
+    elif variable in ['tasmin', 'tmin', 'mn2t']:
         cf_var = 'tasmin'
-    elif variable in ['tas', 't2m']:
+    elif variable in ['tas', 't2m', '2t']:
         if time_agg == 'max':
             cf_var = 'tasmax'
         elif time_agg == 'min':
