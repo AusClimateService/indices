@@ -56,6 +56,7 @@ options:
   --variable VARIABLE   variable to process from input files
   --time_agg {min,mean,max}
                         temporal aggregation to apply to input files (used to convert hourly to daily)
+  --hshift              Shfit time axis values back one hour (required for ERA5 data)
   --start_date START_DATE
                         Start date in YYYY, YYYY-MM or YYYY-MM-DD format
   --end_date END_DATE   Start date in YYYY, YYYY-MM or YYYY-MM-DD format
@@ -101,14 +102,16 @@ you need to use the `--time_agg` option to specify how to temporally aggregate t
 For instance,
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py tnn /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/GLOBAL-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/tnn/tnn_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc --variable t2m --time_agg min --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py tnn /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/GLOBAL-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/tnn/tnn_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc --variable t2m --time_agg min --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --hshift --verbose
 ```
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r10mm /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/r10mm/r10mm_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/mtpr/*/*.nc --variable mtpr --time_agg mean --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r10mm /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/r10mm/r10mm_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/mtpr/*/*.nc --variable mtpr --time_agg mean --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --hshift --verbose
 ```
 
-In both these examples the `--start_date`, `--end_date`, `--lat_bnds` and `--lon_bnds` options have been used to subset the data.
+In both these examples, the `--hshift` option has been used to shift the time axis values back an hour
+(which is required when working with ERA5 data).
+The `--start_date`, `--end_date`, `--lat_bnds` and `--lon_bnds` options have also been used to subset the data.
 Selecting a latitude / longitude box around Australia rather than processing the whole globe
 (this example uses the AGCD dataset spatial bounds) can be particularly useful.
 If the TNn example above is run without the `--lat_bnds` and `--lon_bnds` selection

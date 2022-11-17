@@ -156,13 +156,16 @@ def chunk_data(ds, var, index_name):
     return ds
 
 
-def read_data(infiles, variable_name, start_date=None, end_date=None, lat_bnds=None, lon_bnds=None, time_agg=None):
+def read_data(infiles, variable_name, start_date=None, end_date=None, lat_bnds=None, lon_bnds=None, time_agg=None, hshift=False):
     """Read the input data file/s."""
 
     if len(infiles) == 1:
         ds = xr.open_dataset(infiles[0], chunks='auto', mask_and_scale=True)
     else:
         ds = xr.open_mfdataset(infiles, chunks='auto', mask_and_scale=True)
+
+    if hshift:
+        ds['time'] = ds['time'] - np.timedelta64(1, 'h')
 
     subset_kwargs = {'start_date': start_date, 'end_date': end_date, 'lat_bnds': lat_bnds}
     if lon_bnds:
@@ -237,6 +240,7 @@ def main(args):
             lat_bnds=args.lat_bnds,
             lon_bnds=args.lon_bnds,
             time_agg=time_agg,
+            hshift=args.hshift,
         )
         ds = chunk_data(ds, cf_var, args.index_name)
         datasets.append(ds)
@@ -291,6 +295,12 @@ if __name__ == '__main__':
         choices=('min', 'mean', 'max'),
         default=None,
         help="temporal aggregation to apply to input files (used to convert hourly to daily)",
+    )
+    arg_parser.add_argument(
+        "--hshift",
+        action='store_true',
+        default=False,
+        help='Shfit time axis values back one hour (required for ERA5 data)',
     )
     arg_parser.add_argument(
         "--start_date",
