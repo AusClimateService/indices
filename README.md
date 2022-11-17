@@ -105,7 +105,7 @@ $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py tnn /g/dat
 ```
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r10mm /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/GLOBAL-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/r10mm/r10mm_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/mtpr/*/*.nc --variable mtpr --time_agg mean --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r10mm /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/r10mm/r10mm_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/mtpr/*/*.nc --variable mtpr --time_agg mean --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --verbose
 ```
 
 In both these examples the `--start_date`, `--end_date`, `--lat_bnds` and `--lon_bnds` options have been used to subset the data.
