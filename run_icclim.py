@@ -10,7 +10,6 @@ import numpy as np
 import xarray as xr
 import icclim
 from icclim.ecad.ecad_indices import EcadIndexRegistry
-from clisops.core.subset import subset_bbox
 import dask.diagnostics
 from dask.distributed import Client, LocalCluster, progress
 import cmdline_provenance as cmdprov
@@ -83,6 +82,112 @@ def get_new_log():
     new_log = cmdprov.new_log(code_url=repo_url)
 
     return new_log
+
+
+def subset_lat(ds, lat_bnds):
+    """Select grid points that fall within latitude bounds.
+
+    Parameters
+    ----------
+    ds : Union[xarray.DataArray, xarray.Dataset]
+        Input data
+    lat_bnds : list
+        Latitude bounds: [south bound, north bound]
+
+    Returns
+    -------
+    Union[xarray.DataArray, xarray.Dataset]
+        Subsetted xarray.DataArray or xarray.Dataset
+    """
+
+    if 'latitude' in ds.dims:
+        ds = ds.rename({'latitude': 'lat'})
+
+    south_bound, north_bound = lat_bnds
+    assert -90 <= south_bound <= 90, "Valid latitude range is [-90, 90]"
+    assert -90 <= north_bound <= 90, "Valid latitude range is [-90, 90]"
+    
+    lat_axis = ds['lat'].values
+    if lat_axis[-1] > lat_axis[0]:
+        # monotonic increasing lat axis (e.g. -90 to 90)
+        ds = ds.sel({'lat': slice(south_bound, north_bound)})
+    else:
+        # monotonic decreasing lat axis (e.g. 90 to -90)
+        ds = ds.sel({'lat': slice(north_bound, south_bound)})
+
+    return ds
+
+
+def subset_lon(ds, lon_bnds):
+    """Select grid points that fall within longitude bounds.
+
+    Parameters
+    ----------
+    ds : Union[xarray.DataArray, xarray.Dataset]
+        Input data
+    lon_bnds : list
+        Longitude bounds: [west bound, east bound]
+
+    Returns
+    -------
+    Union[xarray.DataArray, xarray.Dataset]
+        Subsetted xarray.DataArray or xarray.Dataset
+    """
+
+    if 'longitude' in ds.dims:
+        ds = ds.rename({'longitude': 'lon'})
+
+    west_bound, east_bound = lon_bnds
+    lon_axis_min = ds['lon'].values.min()
+    lon_axis_max = ds['lon'].values.max()
+    assert lon_axis_max > lon_axis_min
+
+    if west_bound > lon_axis_max:
+        west_bound = west_bound - 360
+        assert west_bound <= lon_axis_max
+    if east_bound > lon_axis_max:
+        east_bound = east_bound - 360
+        assert east_bound <= lon_axis_max
+
+    if west_bound < lon_axis_min:
+        west_bound = west_bound + 360
+        assert west_bound >= lon_axis_min
+    if east_bound < lon_axis_min:
+        east_bound = east_bound + 360
+        assert east_bound >= lon_axis_min
+
+    if east_bound > west_bound:
+        ds = ds.sel({'lon': slice(west_bound, east_bound)})
+    else:
+        selection = (ds['lon'] >= east_bound) & (ds['lon'] <= west_bound)
+        ds = ds.where(~selection, drop=True)
+
+    return ds
+
+
+def subset_time(ds, start_date=None, end_date=None):
+    """Select grid points that fall within longitude bounds.
+
+    Parameters
+    ----------    
+    ds : Union[xarray.DataArray, xarray.Dataset]
+        Input data.
+    start_date : Optional[str]
+        Start date of the subset.
+        Date string format -- can be year ("%Y"), year-month ("%Y-%m") or year-month-day("%Y-%m-%d").
+        Defaults to first day of input data-array.
+    end_date : Optional[str]
+        End date of the subset.
+        Date string format -- can be year ("%Y"), year-month ("%Y-%m") or year-month-day("%Y-%m-%d").
+        Defaults to last day of input data-array.
+
+    Returns
+    -------
+    Union[xarray.DataArray, xarray.Dataset]
+        Subsetted xarray.DataArray or xarray.Dataset
+    """
+
+    return ds.sel({'time': slice(start_date, end_date)})
 
 
 def fix_input_metadata(ds, variable, time_agg):
@@ -167,11 +272,13 @@ def read_data(infiles, variable_name, start_date=None, end_date=None, lat_bnds=N
     if hshift:
         ds['time'] = ds['time'] - np.timedelta64(1, 'h')
 
-    subset_kwargs = {'start_date': start_date, 'end_date': end_date, 'lat_bnds': lat_bnds}
+    if lat_bnds:
+        ds = subset_lat(ds, lat_bnds)
     if lon_bnds:
-        subset_kwargs['lon_bnds'] = lon_bnds
-    ds = subset_bbox(ds, **subset_kwargs)
-    
+        ds = subset_lon(ds, lon_bnds)
+    if start_date or end_date:
+        ds = subset_time(ds, start_date=start_date, end_date=end_date)
+
     time_freq = xr.infer_freq(ds['time'])
     if time_agg and (time_freq != 'D'):
         logging.info(f'resampling from {time_freq} to daily {time_agg}')
@@ -319,14 +426,14 @@ if __name__ == '__main__':
         type=float,
         nargs=2,
         default=None,
-        help='Latitude bounds',
+        help='Latitude bounds: (south_bound, north_bound)',
     )
     arg_parser.add_argument(
         "--lon_bnds",
         type=float,
         nargs=2,
         default=None,
-        help='Longitude bounds',
+        help='Longitude bounds: (west_bound, east_bound)',
     )
     arg_parser.add_argument(
         "--base_period",
