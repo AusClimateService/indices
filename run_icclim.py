@@ -118,6 +118,23 @@ def subset_lat(ds, lat_bnds):
     return ds
 
 
+def avoid_cyclic(ds, west_bound, east_bound):
+    """Alter longitude axis if requested bounds straddle cyclic point"""
+
+    west_bound_360 = (west_bound + 360) % 360
+    east_bound_360 = (east_bound + 360) % 360
+    west_bound_180 = ((west_bound + 180) % 360) - 180
+    east_bound_180 = ((east_bound + 180) % 360) - 180
+    if east_bound_360 < west_bound_360:
+        ds = ds.assign_coords({'lon': ((ds['lon'] + 180) % 360) - 180})
+        ds = ds.sortby(ds['lon'])
+    elif east_bound_180 < west_bound_180:
+        ds = ds.assign_coords({'lon': (ds['lon'] + 360) % 360}) 
+        ds = ds.sortby(ds['lon'])
+
+    return ds
+
+
 def subset_lon(ds, lon_bnds):
     """Select grid points that fall within longitude bounds.
 
@@ -136,19 +153,20 @@ def subset_lon(ds, lon_bnds):
 
     if 'longitude' in ds.dims:
         ds = ds.rename({'longitude': 'lon'})
+    assert ds['lon'].values.max() > ds['lon'].values.min()
 
     west_bound, east_bound = lon_bnds
-    lon_axis_min = ds['lon'].values.min()
-    lon_axis_max = ds['lon'].values.max()
-    assert lon_axis_max > lon_axis_min
 
+    ds = avoid_cyclic(ds, west_bound, east_bound)
+
+    lon_axis_max = ds['lon'].values.max()
+    lon_axis_min = ds['lon'].values.min()
     if west_bound > lon_axis_max:
         west_bound = west_bound - 360
         assert west_bound <= lon_axis_max
     if east_bound > lon_axis_max:
         east_bound = east_bound - 360
         assert east_bound <= lon_axis_max
-
     if west_bound < lon_axis_min:
         west_bound = west_bound + 360
         assert west_bound >= lon_axis_min
@@ -156,11 +174,7 @@ def subset_lon(ds, lon_bnds):
         east_bound = east_bound + 360
         assert east_bound >= lon_axis_min
 
-    if east_bound > west_bound:
-        ds = ds.sel({'lon': slice(west_bound, east_bound)})
-    else:
-        selection = (ds['lon'] >= east_bound) & (ds['lon'] <= west_bound)
-        ds = ds.where(~selection, drop=True)
+    ds = ds.sel({'lon': slice(west_bound, east_bound)})
 
     return ds
 
