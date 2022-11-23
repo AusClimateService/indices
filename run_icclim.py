@@ -16,36 +16,35 @@ import cmdline_provenance as cmdprov
 
 
 valid_indices = {
-    index.short_name.lower(): index.short_name for index in EcadIndexRegistry.values()
+    index.short_name: index.short_name for index in EcadIndexRegistry.values()
 }
+
 bivariate_indices = [
-    'dtr',
-    'etr',
-    'vdtr',
-    'cd',
-    'cw',
-    'wd',
-    'ww'
+    'DTR',
+    'ETR',
+    'vDTR',
+    'CD',
+    'CW',
+    'WD',
+    'WW'
 ]
 no_time_chunk_indices = [
-    'wsdi',
-    'tg90p',
-    'tn90p',
-    'tx90p',
-    'tg10p',
-    'tn10p',
-    'tx10p',
-    'csdi',
-    'r75p',
-    'p75ptot',
-    'r95p',
-    'r95ptot',
-    'r99p',
-    'r99ptot',
-    'cd',
-    'cw',
-    'wd',
-    'ww',
+    'WSDI',
+    'TG90p',
+    'TN90p',
+    'TX90p',
+    'TG10p',
+    'TN10p',
+    'TX10p',
+    'CSDI',
+    'R95p',
+    'R95pTOT',
+    'R99p',
+    'R99pTOT',
+    'CD',
+    'CW',
+    'WD',
+    'WW',
 ]
 standard_names = {
     'pr': 'precipitation_flux',
@@ -383,6 +382,7 @@ def main(args):
     index = fix_output_metadata(
         index, args.index_name, drop_time_bounds=args.drop_time_bounds
     )
+    index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
     index.to_netcdf(args.output_file)
 
 
