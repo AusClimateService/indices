@@ -35,17 +35,18 @@ $ python run_icclim.py -h
 ```
 
 ```
-usage: run_icclim.py [-h] [--input_files [INPUT_FILES ...]] [--variable VARIABLE] [--time_agg {min,mean,max}] [--start_date START_DATE]
-                     [--end_date END_DATE] [--lat_bnds LAT_BNDS LAT_BNDS] [--lon_bnds LON_BNDS LON_BNDS] [--base_period BASE_PERIOD BASE_PERIOD]
-                     [--slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}] [--verbose] [--local_cluster] [--nworkers NWORKERS] [--nthreads NTHREADS]
-                     [--memory_limit MEMORY_LIMIT] [--dask_dir DASK_DIR] [--drop_time_bounds]
-                     {tg,tn,tx,dtr,etr,vdtr,su,tr,wsdi,tg90p,tn90p,tx90p,txx,tnx,csu,gd4,fd,cfd,hd17,id,tg10p,tn10p,tx10p,txn,tnn,csdi,cdd,prcptot,rr1,sdii,cwd,rr,r10mm,r20mm,rx1day,rx5day,r75p,r75ptot,r95p,r95ptot,r99p,r99ptot,sd,sd1,sd5cm,sd50cm,cd,cw,wd,ww}
+usage: run_icclim.py [-h] [--input_files [INPUT_FILES ...]] [--variable VARIABLE] [--time_agg {min,mean,max}] [--hshift]
+                     [--start_date START_DATE] [--end_date END_DATE] [--lat_bnds LAT_BNDS LAT_BNDS] [--lon_bnds LON_BNDS LON_BNDS]
+                     [--base_period BASE_PERIOD BASE_PERIOD] [--slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}] [--verbose]
+                     [--local_cluster] [--nworkers NWORKERS] [--nthreads NTHREADS] [--memory_limit MEMORY_LIMIT] [--dask_dir DASK_DIR]
+                     [--drop_time_bounds]
+                     {TG,TN,TX,DTR,ETR,vDTR,SU,TR,WSDI,TG90p,TN90p,TX90p,TXx,TNx,CSU,GD4,FD,CFD,HD17,ID,TG10p,TN10p,TX10p,TXn,TNn,CSDI,CDD,PRCPTOT,RR1,SDII,CWD,RR,R10mm,R20mm,RX1day,RX5day,R75p,R75pTOT,R95p,R95pTOT,R99p,R99pTOT,SD,SD1,SD5cm,SD50cm,CD,CW,WD,WW,FXx,FG6Bft,FGcalm,FG,DDnorth,DDeast,DDsouth,DDwest,GSL,SPI6,SPI3}
                      output_file
 
 Command line program for calculating extremes indices.
 
 positional arguments:
-  {tg,tn,tx,dtr,etr,vdtr,su,tr,wsdi,tg90p,tn90p,tx90p,txx,tnx,csu,gd4,fd,cfd,hd17,id,tg10p,tn10p,tx10p,txn,tnn,csdi,cdd,prcptot,rr1,sdii,cwd,rr,r10mm,r20mm,rx1day,rx5day,r75p,r75ptot,r95p,r95ptot,r99p,r99ptot,sd,sd1,sd5cm,sd50cm,cd,cw,wd,ww}
+  {TG,TN,TX,DTR,ETR,vDTR,SU,TR,WSDI,TG90p,TN90p,TX90p,TXx,TNx,CSU,GD4,FD,CFD,HD17,ID,TG10p,TN10p,TX10p,TXn,TNn,CSDI,CDD,PRCPTOT,RR1,SDII,CWD,RR,R10mm,R20mm,RX1day,RX5day,R75p,R75pTOT,R95p,R95pTOT,R99p,R99pTOT,SD,SD1,SD5cm,SD50cm,CD,CW,WD,WW,FXx,FG6Bft,FGcalm,FG,DDnorth,DDeast,DDsouth,DDwest,GSL,SPI6,SPI3}
                         index name
   output_file           output file name
 
@@ -61,9 +62,9 @@ options:
                         Start date in YYYY, YYYY-MM or YYYY-MM-DD format
   --end_date END_DATE   Start date in YYYY, YYYY-MM or YYYY-MM-DD format
   --lat_bnds LAT_BNDS LAT_BNDS
-                        Latitude bounds
+                        Latitude bounds: (south_bound, north_bound)
   --lon_bnds LON_BNDS LON_BNDS
-                        Longitude bounds
+                        Longitude bounds: (west_bound, east_bound)
   --base_period BASE_PERIOD BASE_PERIOD
                         Base period (for percentile calculations) in YYYY-MM-DD format
   --slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}
@@ -88,7 +89,7 @@ the name of the variable to access from that file/s,
 For example:
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py txx /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/climdex/txx/txx_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_year_197901-200112.nc --input_files /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/output/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/day/tasmax/tasmax_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_day_*.nc --variable tasmax --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py TXx /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/climdex/txx/txx_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_year_197901-200112.nc --input_files /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/output/AUS-15/BOM/ECMWF-ERA5/evaluation/r1i1p1f1/BOM-BARPA-R/v1/day/tasmax/tasmax_AUS-15_ECMWF-ERA5_evaluation_r1i1p1f1_BOM-BARPA-R_v1_day_*.nc --variable tasmax --verbose
 ```
 
 In the example above,
@@ -102,11 +103,11 @@ you need to use the `--time_agg` option to specify how to temporally aggregate t
 For instance,
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py tnn /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/GLOBAL-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/tnn/tnn_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc --variable t2m --time_agg min --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --hshift --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py TNn /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/GLOBAL-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/tnn/tnn_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc --variable t2m --time_agg min --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --hshift --verbose
 ```
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r10mm /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/r10mm/r10mm_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/mtpr/*/*.nc --variable mtpr --time_agg mean --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --hshift --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py R10mm /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-gn/none/ECMWF-ERA5/evaluation/r1i1p1f1/none/none/climdex/r10mm/r10mm_AUS-gn_ECMWF-ERA5_evaluation_r1i1p1f1_year_195901-202112.nc --input_files /g/data/rt52/era5/single-levels/reanalysis/mtpr/*/*.nc --variable mtpr --time_agg mean --start_date 1959-01-01 --end_date 2021-12-31 --lon_bnds 111.975 156.275 --lat_bnds -44.525 -9.975 --hshift --verbose
 ```
 
 In both these examples, the `--hshift` option has been used to shift the time axis values back an hour
@@ -128,7 +129,7 @@ and the second time to specify the minimum temperature files and variable name.
 For example:
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py dtr /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-r005/none/BOM-AGCD/historical/v1/none/none/climdex/dtr/dtr_AUS-r005_BOM-AGCD_historical_v1_year_191001-202112.nc  --input_files /g/data/xv83/agcd-csiro/tmax/daily/tmax_AGCD-CSIRO_r005_*.nc --variable tmax --input_files /g/data/xv83/agcd-csiro/tmin/daily/tmin_AGCD-CSIRO_r005_*.nc --variable tmin --start_date 1910-01-01 --end_date 2021-12-31 --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py DTR /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-r005/none/BOM-AGCD/historical/v1/none/none/climdex/dtr/dtr_AUS-r005_BOM-AGCD_historical_v1_year_191001-202112.nc  --input_files /g/data/xv83/agcd-csiro/tmax/daily/tmax_AGCD-CSIRO_r005_*.nc --variable tmax --input_files /g/data/xv83/agcd-csiro/tmin/daily/tmin_AGCD-CSIRO_r005_*.nc --variable tmin --start_date 1910-01-01 --end_date 2021-12-31 --verbose
 ```
 
 > **CF-compliance**
@@ -146,11 +147,11 @@ $ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py dtr /g/dat
 #### Example 4: "Along the time axis" indices
 
 A small number of climate indices require calculations to be performed along the entire time axis.
-For instance, in the example below the `r95ptot` index requires calculation of the 95th percentile
+For instance, in the example below the `R95pTOT` index requires calculation of the 95th percentile
 along the time axis for the entire 1900-2021 period:
 
 ```
-$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py r95ptot /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-r005/none/BOM-AGCD/historical/v1/none/none/climdex/r95ptot/r95ptot_AUS-r005_BOM-AGCD_historical_v1_year_190001-202112.nc --input_files /g/data/xv83/agcd-csiro/precip/daily/precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr --variable precip --start_date 1900-01-01 --end_date 2021-12-31 --verbose
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_icclim.py R95pTOT /g/data/ia39/australian-climate-service/test-data/CORDEX-CMIP6/indices/AUS-r005/none/BOM-AGCD/historical/v1/none/none/climdex/r95ptot/r95ptot_AUS-r005_BOM-AGCD_historical_v1_year_190001-202112.nc --input_files /g/data/xv83/agcd-csiro/precip/daily/precip-total_AGCD-CSIRO_r005_19000101-20220405_daily_space-chunked.zarr --variable precip --start_date 1900-01-01 --end_date 2021-12-31 --verbose
 ```
 
 Indices that involve calculations along the entire time axis are much more memory intensive.
