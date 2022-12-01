@@ -383,6 +383,7 @@ def main(args):
         index, args.index_name, drop_time_bounds=args.drop_time_bounds
     )
     index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
+    index.attrs['icclim_version'] = icclim.__version__
     index.to_netcdf(args.output_file)
 
 
