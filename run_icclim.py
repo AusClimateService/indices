@@ -316,6 +316,16 @@ def read_data(infiles, variable_name, start_date=None, end_date=None, lat_bnds=N
     except ValueError:
         pass
 
+    try:
+        ds = ds.drop('lat_bnds')
+    except ValueError:
+        pass
+
+    try:
+        ds = ds.drop('lon_bnds')
+    except ValueError:
+        pass
+
     return ds, cf_var
 
 
