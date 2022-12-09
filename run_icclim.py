@@ -278,9 +278,15 @@ def read_data(infiles, variable_name, start_date=None, end_date=None, lat_bnds=N
     """Read the input data file/s."""
 
     if len(infiles) == 1:
-        ds = xr.open_dataset(infiles[0], chunks='auto', mask_and_scale=True)
+        try:
+            ds = xr.open_dataset(infiles[0], chunks='auto', mask_and_scale=True)
+        except NotImplementedError:
+            ds = xr.open_dataset(infiles[0], mask_and_scale=True)
     else:
-        ds = xr.open_mfdataset(infiles, chunks='auto', mask_and_scale=True)
+        try:
+            ds = xr.open_mfdataset(infiles, chunks='auto', mask_and_scale=True)
+        except NotImplementedError:
+            ds = xr.open_mfdataset(infiles, mask_and_scale=True)
 
     if hshift:
         ds['time'] = ds['time'] - np.timedelta64(1, 'h')
