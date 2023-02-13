@@ -179,7 +179,7 @@ def subset_lon(ds, lon_bnds):
 
 
 def subset_time(ds, start_date=None, end_date=None):
-    """Select grid points that fall within longitude bounds.
+    """Subset the time axis.
 
     Parameters
     ----------    
