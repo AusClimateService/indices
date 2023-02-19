@@ -217,7 +217,7 @@ def fix_input_metadata(ds, variable, time_agg):
         cf_var = 'tasmax'
     elif variable in ['tasmin', 'tmin', 'mn2t']:
         cf_var = 'tasmin'
-    elif variable in ['tas', 't2m', '2t']:
+    elif variable in ['tas', 't2m', '2t', 'tasmean']:
         if time_agg == 'max':
             cf_var = 'tasmax'
         elif time_agg == 'min':
