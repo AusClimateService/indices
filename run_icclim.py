@@ -70,7 +70,7 @@ def profiling_stats(rprof):
     logging.info(f'Peak CPU usage: {max_cpus}%')
 
 
-def get_new_log():
+def get_new_log(infile_log=None):
     """Generate command log for output file."""
 
     try:
@@ -78,7 +78,10 @@ def get_new_log():
         repo_url = repo.remotes[0].url.split(".git")[0]
     except (git.exc.InvalidGitRepositoryError, NameError):
         repo_url = None
-    new_log = cmdprov.new_log(code_url=repo_url)
+    new_log = cmdprov.new_log(
+        infile_logs=infile_log,
+        code_url=repo_url
+    )
 
     return new_log
 
@@ -240,15 +243,25 @@ def fix_input_metadata(ds, variable, time_agg):
     return ds, cf_var
 
 
-def fix_output_metadata(index_ds, index_name_lower, drop_time_bounds=False):
+def fix_output_metadata(index_ds, index_name_lower, input_global_attrs, infile_log, drop_time_bounds=False):
     """Make edits to output metadata"""
-    
-    index_ds.attrs['history'] = get_new_log()
-    
+
+    new_global_attrs = input_global_attrs
+    new_global_attrs['icclim_version'] = icclim.__version__
+    new_global_attrs['references'] = index_ds.attrs['references']
+    new_global_attrs['history'] = get_new_log(infile_log=infile_log)
+    index_ds.attrs = new_global_attrs
+       
     index_name_upper = valid_indices[index_name_lower]
     del index_ds[index_name_upper].attrs['history']
     del index_ds[index_name_upper].attrs['cell_methods']
-    
+    try:
+        del index_ds[index_name_upper].attrs['cell methods']
+    except KeyError:
+        pass
+    if index_ds[index_name_upper].attrs['units'] == '°C':
+        index_ds[index_name_upper].attrs['units'] = 'C'
+
     if drop_time_bounds:
         index_ds = index_ds.drop('time_bounds').drop('bounds')
         del index_ds['time'].attrs['bounds']
@@ -395,11 +408,15 @@ def main(args):
         index = index.persist()
         progress(index)
 
+    input_global_attrs = ds.attrs
+    if args.append_history:
+        infile_log = {infiles[0], ds.attrs['history']}
+    else:
+        infile_log = None
     index = fix_output_metadata(
-        index, args.index_name, drop_time_bounds=args.drop_time_bounds
+        index, args.index_name, input_global_attrs, infile_log, drop_time_bounds=args.drop_time_bounds
     )
     index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
-    index.attrs['icclim_version'] = icclim.__version__
     index.to_netcdf(args.output_file)
 
 
@@ -439,6 +456,12 @@ if __name__ == '__main__':
         action='store_true',
         default=False,
         help='Shfit time axis values back one hour (required for ERA5 data)',
+    )
+    arg_parser.add_argument(
+        "--append_history",
+        action='store_true',
+        default=False,
+        help='Append new history file attribute to history from input file/s',
     )
     arg_parser.add_argument(
         "--start_date",
