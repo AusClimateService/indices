@@ -25,7 +25,7 @@ def get_new_log(infile_log=None):
     return new_log
 
 
-def fix_input_metadata(ds, variable, time_agg):
+def fix_input_metadata(ds, variable, sub_daily_agg):
     """Ensure CF-compliance of input data file (which icclim requires)"""
 
     if 'latitude' in ds.dims:
@@ -40,9 +40,9 @@ def fix_input_metadata(ds, variable, time_agg):
     elif variable in ['tasmin', 'tmin', 'mn2t']:
         cf_var = 'tasmin'
     elif variable in ['tas', 't2m', '2t', 'tasmean']:
-        if time_agg == 'max':
+        if sub_daily_agg == 'max':
             cf_var = 'tasmax'
-        elif time_agg == 'min':
+        elif sub_daily_agg == 'min':
             cf_var = 'tasmin'
         else:
             cf_var = 'tas'
@@ -109,16 +109,16 @@ def read_data(
 
     time_freq = xr.infer_freq(ds['time'])
     if sub_daily_agg and (time_freq != 'D'):
-        logging.info(f'resampling from {time_freq} to daily {time_agg}')
-        if time_agg == 'mean':
+        logging.info(f'resampling from {time_freq} to daily {sub_daily_agg}')
+        if sub_daily_agg == 'mean':
             ds = ds.resample(time='1D').mean(dim='time')
-        elif time_agg == 'min':
+        elif sub_daily_agg == 'min':
             ds = ds.resample(time='1D').min(dim='time')
-        elif time_agg == 'max':
+        elif sub_daily_agg == 'max':
             ds = ds.resample(time='1D').max(dim='time')
         time_freq = xr.infer_freq(ds['time'])
 
-    ds, cf_var = fix_input_metadata(ds, variable_name, time_agg)
+    ds, cf_var = fix_input_metadata(ds, variable_name, sub_daily_agg)
     
     try:
         ds = ds.drop('height')
@@ -184,5 +184,4 @@ def chunk_data(ds, var, index_name):
     logging.info(f'Chunk size: {ds[var].chunksizes}')
 
     return ds
-
 

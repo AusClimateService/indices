@@ -1,51 +1,29 @@
-"""Command line program for calculating climate indices using icclim."""
+"""Command line program for calculating climate indices using xclim."""
 
 import os
 import argparse
 import logging
-from dateutil import parser
 
 import numpy as np
-import icclim
-from icclim.ecad.ecad_indices import EcadIndexRegistry
+import xclim as xc
 import dask.diagnostics
 from dask.distributed import Client, LocalCluster, progress
 
 import fileio_utils
 
 
-valid_indices = {
-    index.short_name: index.short_name for index in EcadIndexRegistry.values()
+index_variables = {
+    'cooling_degree_days': ['tas',],
+    'frost_days': ['tasmin',],
+    'growing_degree_days': ['tas',],
 }
 
-bivariate_indices = [
-    'DTR',
-    'ETR',
-    'vDTR',
-    'CD',
-    'CW',
-    'WD',
-    'WW'
-]
-no_time_chunk_indices = [
-    'WSDI',
-    'TG90p',
-    'TN90p',
-    'TX90p',
-    'TG10p',
-    'TN10p',
-    'TX10p',
-    'CSDI',
-    'R95p',
-    'R95pTOT',
-    'R99p',
-    'R99pTOT',
-    'CD',
-    'CW',
-    'WD',
-    'WW',
-]
-    
+index_func = {
+    'cooling_degree_days': xc.indicators.atmos.cooling_degree_days,
+    'frost_days': xc.indicators.atmos.frost_days,
+    'growing_degree_days': xc.indicators.atmos.growing_degree_days,
+}
+
 
 def profiling_stats(rprof):
     """Record profiling information"""
@@ -57,28 +35,16 @@ def profiling_stats(rprof):
     logging.info(f'Peak CPU usage: {max_cpus}%')
 
 
-def fix_output_metadata(index_ds, index_name_lower, input_global_attrs, infile_log, drop_time_bounds=False):
-    """Make edits to output icclim metadata"""
+def fix_output_metadata(index_ds, index_name, infile_log, input_global_attrs):
+    """Make edits to output xclim metadata"""
 
     new_global_attrs = input_global_attrs
-    new_global_attrs['icclim_version'] = icclim.__version__
-    new_global_attrs['references'] = index_ds.attrs['references']
+    new_global_attrs['xclim_version'] = xc.__version__
     new_global_attrs['history'] = fileio_utils.get_new_log(infile_log=infile_log)
     index_ds.attrs = new_global_attrs
-       
-    index_name_upper = valid_indices[index_name_lower]
-    del index_ds[index_name_upper].attrs['history']
-    del index_ds[index_name_upper].attrs['cell_methods']
-    try:
-        del index_ds[index_name_upper].attrs['cell methods']
-    except KeyError:
-        pass
-    if index_ds[index_name_upper].attrs['units'] == '°C':
-        index_ds[index_name_upper].attrs['units'] = 'C'
-
-    if drop_time_bounds:
-        index_ds = index_ds.drop('time_bounds').drop('bounds')
-        del index_ds['time'].attrs['bounds']
+    
+    del index_ds[index_name].attrs['history']
+    del index_ds[index_name].attrs['cell_methods']
     
     return index_ds
 
@@ -102,42 +68,21 @@ def main(args):
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level)
 
-    if args.base_period:
-        start_date = parser.parse(args.base_period[0])
-        end_date = parser.parse(args.base_period[1])
-        base_period = [start_date, end_date]
-    else:
-        base_period = None
-
-    datasets = []
-    variables = []
-    ndatasets = len(args.variable)
-    for dsnum in range(ndatasets):
-        infiles = args.input_files[dsnum]
-        var = args.variable[dsnum]
-        sub_daily_agg = args.sub_daily__agg[dsnum] if args.sub_daily_agg else None
-        ds, cf_var = fileio_utils.read_data(
-            infiles,
-            var,
-            start_date=args.start_date,
-            end_date=args.end_date,
-            lat_bnds=args.lat_bnds,
-            lon_bnds=args.lon_bnds,
-            sub_daily_agg=sub_daily_agg,
-            hshift=args.hshift,
-        )
-        ds = chunk_data(ds, cf_var, args.index_name)
-        datasets.append(ds)
-        variables.append(cf_var)
-
-    index = icclim.index(
-        in_files=datasets,
-        index_name=args.index_name,
-        var_name=variables,
-        slice_mode=args.slice_mode,
-        base_period_time_range=base_period,
-        logs_verbosity='HIGH',
+    ds, cf_var = fileio_utils.read_data(
+        args.input_files[0],
+        args.variable[0],
+        start_date=args.start_date,
+        end_date=args.end_date,
+        lat_bnds=args.lat_bnds,
+        lon_bnds=args.lon_bnds,
+#        sub_daily_agg=args.sub_daily_agg,
+        hshift=args.hshift,
     )
+    
+    index = index_func[args.index_name](
+        ds[cf_var], thresh=args.thresh, freq=args.freq, date_bounds=args.date_bounds
+    )
+    index = index.to_dataset()
 
     if args.local_cluster:
         index = index.persist()
@@ -147,10 +92,7 @@ def main(args):
         infile_log = {infiles[0], ds.attrs['history']}
     else:
         infile_log = None
-    index = fix_output_metadata(
-        index, args.index_name, ds.attrs, infile_log, drop_time_bounds=args.drop_time_bounds
-    )
-    index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
+    index = fix_output_metadata(index, args.index_name, infile_log, ds.attrs)
     index.to_netcdf(args.output_file)
 
 
@@ -161,8 +103,8 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
     arg_parser.add_argument(
-        "index_name", type=str, choices=list(valid_indices.keys()), help="index name"
-    )         
+        "index_name", type=str, choices=list(index_func.keys()), help="name of climate index"
+    )
     arg_parser.add_argument("output_file", type=str, help="output file name")
     arg_parser.add_argument(
         "--input_files",
@@ -177,13 +119,19 @@ if __name__ == '__main__':
         action='append',
         help="variable to process from input files",
     )
+    arg_parser.add_argument("--thresh", type=str, help="threshold")
     arg_parser.add_argument(
-        "--sub_daily_agg",
+        "--date_bounds",
         type=str,
-        action='append',
-        choices=('min', 'mean', 'max'),
+        nargs=2,
         default=None,
-        help="temporal aggregation to apply to sub-daily input files (used to convert hourly to daily)",
+        help='Bounds for the time of year of interest in MM-DD format',
+    )
+    arg_parser.add_argument(
+        "--freq",
+        type=str,
+        default='YS',
+        help='Sampling frequency for index calculation [default=YS]',
     )
     arg_parser.add_argument(
         "--hshift",
@@ -224,18 +172,12 @@ if __name__ == '__main__':
         help='Longitude bounds: (west_bound, east_bound)',
     )
     arg_parser.add_argument(
-        "--base_period",
+        "--sub_daily_agg",
         type=str,
-        nargs=2,
+        action='append',
+        choices=('min', 'mean', 'max'),
         default=None,
-        help='Base period (for percentile calculations) in YYYY-MM-DD format',
-    )
-    arg_parser.add_argument(
-        "--slice_mode",
-        type=str,
-        choices=['year', 'month', 'DJF', 'MAM', 'JJA', 'SON', 'ONDJFM', 'AMJJAS'],
-        default='year',
-        help='Sampling frequency for index calculation [default=year]',
+        help="temporal aggregation to apply to sub-daily input files (used to convert hourly to daily)",
     )
     arg_parser.add_argument(
         "--verbose",
@@ -273,27 +215,10 @@ if __name__ == '__main__':
         default=None,
         help='Directory where dask worker space files can be written. Required for local dask cluster.',
     )
-    arg_parser.add_argument(
-        "--drop_time_bounds",
-        action='store_true',
-        default=False,
-        help='Drop the time bounds from output file',
-    )
     args = arg_parser.parse_args()
 
     assert not os.path.isfile(args.output_file), \
         f'Output file {args.output_file} already exists. Delete before proceeding.'
-
-    if args.index_name in bivariate_indices:
-        assert len(args.variable) == 2, \
-            f'{args.index_name} requires two variables' 
-        assert len(args.input_files) == 2, \
-            f'{args.index_name} requires two sets of input file/s (one for each variable)'
-    else:
-        assert len(args.variable) == 1, \
-            f'{args.index_name} requires one variable' 
-        assert len(args.input_files) == 1, \
-            f'{args.index_name} requires one set of input file/s'
 
     with dask.diagnostics.ResourceProfiler() as rprof:
         main(args)
