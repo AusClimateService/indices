@@ -3,7 +3,10 @@
 import logging
 
 import git
+import numpy as np
 import xarray as xr
+import xclim as xc
+import icclim
 import cmdline_provenance as cmdprov
 
 import spatial_utils
@@ -72,6 +75,43 @@ def fix_input_metadata(ds, variable, sub_daily_agg):
         ds[cf_var].attrs['units'] = 'mm d-1'
 
     return ds, cf_var
+
+
+def fix_output_metadata(
+    index_ds,
+    index_name,
+    input_global_attrs,
+    infile_log,
+    software,
+    drop_time_bounds=False,
+):
+    """Make edits to output icclim or xclim metadata"""
+
+    new_global_attrs = input_global_attrs
+    if software == 'icclim':
+        new_global_attrs['icclim_version'] = icclim.__version__
+        new_global_attrs['references'] = index_ds.attrs['references']
+    elif software == 'xclim':
+        new_global_attrs['xclim_version'] = xc.__version__
+    else:
+        raise ValueError('unrecognised software package')
+    new_global_attrs['history'] = get_new_log(infile_log=infile_log)
+    index_ds.attrs = new_global_attrs
+       
+    del index_ds[index_name].attrs['history']
+    del index_ds[index_name].attrs['cell_methods']
+    try:
+        del index_ds[index_name].attrs['cell methods']
+    except KeyError:
+        pass
+    if index_ds[index_name].attrs['units'] == '°C':
+        index_ds[index_name].attrs['units'] = 'C'
+
+    if drop_time_bounds:
+        index_ds = index_ds.drop('time_bounds').drop('bounds')
+        del index_ds['time'].attrs['bounds']
+    
+    return index_ds
 
 
 def read_data(
@@ -168,20 +208,12 @@ def subset_time(ds, start_date=None, end_date=None):
     return ds.sel({'time': slice(start_date, end_date)})
 
 
-def chunk_data(ds, var, index_name):
-    """Chunk a dataset."""
+def profiling_stats(rprof):
+    """Record profiling information"""
 
-    if index_name in no_time_chunk_indices:
-        dims = ds[var].coords.dims
-        assert 'time' in dims
-        chunks = {'time': -1}
-        for dim in dims:
-            if not dim == 'time':
-                chunks[dim] = 'auto'
-        ds = ds.chunk(chunks)
+    max_memory = np.max([result.mem for result in rprof.results])
+    max_cpus = np.max([result.cpu for result in rprof.results])
 
-    logging.info(f'Array size: {ds[var].shape}')
-    logging.info(f'Chunk size: {ds[var].chunksizes}')
-
-    return ds
+    logging.info(f'Peak memory usage: {max_memory}MB')
+    logging.info(f'Peak CPU usage: {max_cpus}%')
 

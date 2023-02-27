@@ -5,7 +5,6 @@ import argparse
 import logging
 from dateutil import parser
 
-import numpy as np
 import icclim
 from icclim.ecad.ecad_indices import EcadIndexRegistry
 import dask.diagnostics
@@ -47,40 +46,22 @@ no_time_chunk_indices = [
 ]
     
 
-def profiling_stats(rprof):
-    """Record profiling information"""
+def chunk_data(ds, var, index_name):
+    """Chunk a dataset."""
 
-    max_memory = np.max([result.mem for result in rprof.results])
-    max_cpus = np.max([result.cpu for result in rprof.results])
+    if index_name in no_time_chunk_indices:
+        dims = ds[var].coords.dims
+        assert 'time' in dims
+        chunks = {'time': -1}
+        for dim in dims:
+            if not dim == 'time':
+                chunks[dim] = 'auto'
+        ds = ds.chunk(chunks)
 
-    logging.info(f'Peak memory usage: {max_memory}MB')
-    logging.info(f'Peak CPU usage: {max_cpus}%')
+    logging.info(f'Array size: {ds[var].shape}')
+    logging.info(f'Chunk size: {ds[var].chunksizes}')
 
-
-def fix_output_metadata(index_ds, index_name_lower, input_global_attrs, infile_log, drop_time_bounds=False):
-    """Make edits to output icclim metadata"""
-
-    new_global_attrs = input_global_attrs
-    new_global_attrs['icclim_version'] = icclim.__version__
-    new_global_attrs['references'] = index_ds.attrs['references']
-    new_global_attrs['history'] = fileio_utils.get_new_log(infile_log=infile_log)
-    index_ds.attrs = new_global_attrs
-       
-    index_name_upper = valid_indices[index_name_lower]
-    del index_ds[index_name_upper].attrs['history']
-    del index_ds[index_name_upper].attrs['cell_methods']
-    try:
-        del index_ds[index_name_upper].attrs['cell methods']
-    except KeyError:
-        pass
-    if index_ds[index_name_upper].attrs['units'] == '°C':
-        index_ds[index_name_upper].attrs['units'] = 'C'
-
-    if drop_time_bounds:
-        index_ds = index_ds.drop('time_bounds').drop('bounds')
-        del index_ds['time'].attrs['bounds']
-    
-    return index_ds
+    return ds
 
 
 def main(args):
@@ -115,7 +96,7 @@ def main(args):
     for dsnum in range(ndatasets):
         infiles = args.input_files[dsnum]
         var = args.variable[dsnum]
-        sub_daily_agg = args.sub_daily__agg[dsnum] if args.sub_daily_agg else None
+        sub_daily_agg = args.sub_daily_agg[dsnum] if args.sub_daily_agg else None
         ds, cf_var = fileio_utils.read_data(
             infiles,
             var,
@@ -147,8 +128,13 @@ def main(args):
         infile_log = {infiles[0], ds.attrs['history']}
     else:
         infile_log = None
-    index = fix_output_metadata(
-        index, args.index_name, ds.attrs, infile_log, drop_time_bounds=args.drop_time_bounds
+    index = fileio_utils.fix_output_metadata(
+        index,
+        args.index_name,
+        ds.attrs,
+        infile_log,
+        'icclim',
+        drop_time_bounds=args.drop_time_bounds
     )
     index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
     index.to_netcdf(args.output_file)
@@ -297,4 +283,4 @@ if __name__ == '__main__':
 
     with dask.diagnostics.ResourceProfiler() as rprof:
         main(args)
-    profiling_stats(rprof)
+    fileio_utils.profiling_stats(rprof)
