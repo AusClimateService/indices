@@ -1,9 +1,10 @@
 """Command line program for calculating climate indices using xclim."""
-
+import pdb
 import os
 import argparse
 import logging
 
+import xarray as xr
 import xclim as xc
 import dask.diagnostics
 from dask.distributed import Client, LocalCluster, progress
@@ -11,33 +12,65 @@ from dask.distributed import Client, LocalCluster, progress
 import fileio_utils
 
 
-index_variables = {
-    'cooling_degree_days': ['tas'],
-    'frost_days': ['tasmin'],
-    'growing_degree_days': ['tas'],
-    'heat_wave_frequency': ['tasmin', 'tasmax'],
-    'hot_spell_frequency': ['tasmax'],
-    'hot_spell_max_length': ['tasmax'],
-    'maximum_consecutive_dry_days': ['pr'],
-    'tn_days_below': ['tasmin'],
-    'tn_days_above': ['tasmin'],
-}
-
-index_func = {
-    'cooling_degree_days': xc.indicators.atmos.cooling_degree_days,
-    'frost_days': xc.indicators.atmos.frost_days,
-    'growing_degree_days': xc.indicators.atmos.growing_degree_days,
-    'heat_wave_frequency': xc.indicators.atmos.heat_wave_frequency,
-    'hot_spell_frequency': xc.indicators.atmos.hot_spell_frequency,
-    'hot_spell_max_length': xc.indicators.atmos.hot_spell_max_length,
-    'maximum_consecutive_dry_days': xc.indicators.atmos.maximum_consecutive_dry_days,
-    'tn_days_below': xc.indicators.atmos.tn_days_below,
-    'tn_days_above': xc.indicators.atmos.tn_days_below,
-}
+valid_indices = [
+    'cooling_degree_days',
+    'frost_days',
+    'growing_degree_days',
+    'heat_wave_frequency',
+    'hot_spell_frequency',
+    'hot_spell_max_length',
+    'maximum_consecutive_dry_days',
+    'tn_days_below',
+    'tn_days_above',
+]
 
 # indices where thresh keyword argument is thresh_{var}
 thresh_var_indices = ['hot_spell_frequency', 'hot_spell_max_length']
 
+
+def get_xclim_params(args_dict):
+    """Get the parameters and variables associated with an xclim indicator."""
+
+    index_name = args_dict['index_name']
+    index_func = xc.core.indicator.registry[index_name.upper()].get_instance()
+    index_params = {}
+    index_vars = []
+    for name, param in index_func.parameters.items():
+        if name in ['ds', 'indexer']:
+            continue
+        elif param['kind'] == xc.core.utils.InputKind.VARIABLE:
+            index_vars.append(name)
+        elif name in args_dict:
+            index_params[name] = args_dict[name]
+            mstr, *ustr = str(param['default']).split(" ", maxsplit=1)
+            if ustr:
+                unit = xc.core.units.units2pint(ustr[0])
+                index_params[name] = "{} {}".format(index_params[name], str(unit))     
+        else:
+            index_params[name] = param['default']
+    
+#    kwargs = {'freq': args.freq}
+#    if args.date_bounds: 
+#        kwargs['date_bounds'] = args.date_bounds
+#    if len(index_vars) == 1:
+#        var = index_vars[0]
+#        kwargs[var] = da_dict[var]
+#        if args.index_name in thresh_var_indices:
+#            thresh_key = f'thresh_{var}'
+#        else:
+#            thresh_key = 'thresh'
+#        kwargs[thresh_key] = thresh_dict[var]
+#    elif len(index_vars) == 2:
+#        var1, var2 = index_vars
+#        kwargs[var1] = da_dict[var1]
+#        kwargs[var2] = da_dict[var2]
+#        kwargs[f'thresh_{var1}'] = thresh_dict[var1]
+#        kwargs[f'thresh_{var2}'] = thresh_dict[var2]  
+#    else:
+#        raise ValueError('Too many input variables')
+
+    return index_func, index_params, index_vars
+                
 
 def main(args):
     """Run the program."""
@@ -58,10 +91,11 @@ def main(args):
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level)
 
-    da_dict = {}
-    thresh_dict = {}
+    index_func, index_params, index_vars = get_xclim_params(vars(args))
+    pdb.set_trace()
+
+    ds_list = []
     ndatasets = len(args.variable)
-    index_vars = index_variables[args.index_name]
     for dsnum in range(ndatasets):
         ds, cf_var = fileio_utils.read_data(
             args.input_files[dsnum],
@@ -73,40 +107,17 @@ def main(args):
 #            sub_daily_agg=args.sub_daily_agg,
             hshift=args.hshift,
         )
-        da_dict[cf_var] = ds[cf_var]
-        if 'tas' in index_vars:
-            thresh_dict['tas'] = args.thresh[0]
-        else:
-            thresh_dict[cf_var] = args.thresh[dsnum]
+        ds_list.append(ds)
+    ds = xr.merge(ds_list)
 
-    if 'tas' in index_vars:
-        if 'tas' not in da_dict:
-            da_dict['tas'] = (da_dict['tasmax'] + da_dict['tasmin']) / 2.0
-            da_dict['tas'].attrs = da_dict['tasmin'].attrs
-            da_dict['tas'].attrs['long_name'] = da_dict['tas'].attrs['long_name'].replace('Minimum', 'Mean')
-            da_dict['tas'].name = 'tas'
+    if 'tas' in index_vars and 'tas' not in ds:
+        ds['tas'] = (ds['tasmax'] + ds['tasmin']) / 2.0
+        ds['tas'].attrs = ds['tasmin'].attrs
+        ds['tas'].attrs['long_name'] = ds['tas'].attrs['long_name'].replace('Minimum', 'Mean')
 
-    kwargs = {'freq': args.freq}
-    if args.date_bounds: 
-        kwargs['date_bounds'] = args.date_bounds
-    if len(index_vars) == 1:
-        var = index_vars[0]
-        kwargs[var] = da_dict[var]
-        if args.index_name in thresh_var_indices:
-            thresh_key = f'thresh_{var}'
-        else:
-            thresh_key = 'thresh'
-        kwargs[thresh_key] = thresh_dict[var]
-    elif len(index_vars) == 2:
-        var1, var2 = index_vars
-        kwargs[var1] = da_dict[var1]
-        kwargs[var2] = da_dict[var2]
-        kwargs[f'thresh_{var1}'] = thresh_dict[var1]
-        kwargs[f'thresh_{var2}'] = thresh_dict[var2]  
-    else:
-        raise ValueError('Too many input variables')
+    logging.info("Running xclim indicator {} with parameters {}".format(args.index_name, index_params))
 
-    index = index_func[args.index_name](**kwargs)
+    index = index_func[args.index_name](ds=ds, **index_params)
     index = index.to_dataset()
 
     if args.local_cluster:
@@ -130,7 +141,7 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
     arg_parser.add_argument(
-        "index_name", type=str, choices=list(index_func.keys()), help="name of climate index"
+        "index_name", type=str, choices=valid_indices, help="name of climate index"
     )
     arg_parser.add_argument("output_file", type=str, help="output file name")
     arg_parser.add_argument(
