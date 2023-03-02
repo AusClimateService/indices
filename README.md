@@ -1,12 +1,23 @@
 # indices
 
-This directory contains a command line program for calculating climate indices
-such as those used by the [ETCCDI](http://etccdi.pacificclimate.org/list_27_indices.shtml) and
+This directory contains two command line programs for calculating climate indices.
+
+`run_icclim.py` uses the [icclim](https://icclim.readthedocs.io/en/stable/) library
+to calculate simple indices such as those used by the
+[ETCCDI](http://etccdi.pacificclimate.org/list_27_indices.shtml) and
 [Climdex](https://www.climdex.org/) projects.
-The program makes use of the [icclim](https://icclim.readthedocs.io/en/stable/) library.
 Detailed descriptions of each index are available in the
 icclim [API](https://icclim.readthedocs.io/en/stable/references/ecad_functions_api.html#module-icclim._generated_api)
 and an associated [ATBD](https://www.ecad.eu/documents/atbd.pdf).
+
+`run_xclim.py` uses the [xclim](https://xclim.readthedocs.io/en/stable/) library
+to calculate a series of climate indicators documented at the xclim
+[climate indicators API](https://xclim.readthedocs.io/en/stable/indicators.html).
+
+The major difference between the icclim and xclim indices is that the icclim indices
+represent a set of widely used, rigidly defined metrics
+(e.g. the RX5day index can't be modified to calculate the maximum rainfall over 4 days instead)
+while the xclim indicators can be configured to set different thresholds, times of year, etc.
 
 ## Python environment
 
@@ -25,58 +36,13 @@ you'll need to install the following libraries using conda:
 $ conda install -c conda-forge icclim cmdline_provenance gitpython
 ```
 
-## Usage
+## Usage: `run_icclim.py`
 
 Running the script at the command line with the `-h` option explains the user options,
-including the very long list of indices that the script can calculate:
+including the very long list of indices that the script can calculate.
 
 ```bash
 $ python run_icclim.py -h
-```
-
-```
-usage: run_icclim.py [-h] [--input_files [INPUT_FILES ...]] [--variable VARIABLE] [--time_agg {min,mean,max}] [--hshift]
-                     [--start_date START_DATE] [--end_date END_DATE] [--lat_bnds LAT_BNDS LAT_BNDS] [--lon_bnds LON_BNDS LON_BNDS]
-                     [--base_period BASE_PERIOD BASE_PERIOD] [--slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}] [--verbose]
-                     [--local_cluster] [--nworkers NWORKERS] [--nthreads NTHREADS] [--memory_limit MEMORY_LIMIT] [--dask_dir DASK_DIR]
-                     [--drop_time_bounds]
-                     {TG,TN,TX,DTR,ETR,vDTR,SU,TR,WSDI,TG90p,TN90p,TX90p,TXx,TNx,CSU,GD4,FD,CFD,HD17,ID,TG10p,TN10p,TX10p,TXn,TNn,CSDI,CDD,PRCPTOT,RR1,SDII,CWD,RR,R10mm,R20mm,RX1day,RX5day,R75p,R75pTOT,R95p,R95pTOT,R99p,R99pTOT,SD,SD1,SD5cm,SD50cm,CD,CW,WD,WW,FXx,FG6Bft,FGcalm,FG,DDnorth,DDeast,DDsouth,DDwest,GSL,SPI6,SPI3}
-                     output_file
-
-Command line program for calculating extremes indices.
-
-positional arguments:
-  {TG,TN,TX,DTR,ETR,vDTR,SU,TR,WSDI,TG90p,TN90p,TX90p,TXx,TNx,CSU,GD4,FD,CFD,HD17,ID,TG10p,TN10p,TX10p,TXn,TNn,CSDI,CDD,PRCPTOT,RR1,SDII,CWD,RR,R10mm,R20mm,RX1day,RX5day,R75p,R75pTOT,R95p,R95pTOT,R99p,R99pTOT,SD,SD1,SD5cm,SD50cm,CD,CW,WD,WW,FXx,FG6Bft,FGcalm,FG,DDnorth,DDeast,DDsouth,DDwest,GSL,SPI6,SPI3}
-                        index name
-  output_file           output file name
-
-options:
-  -h, --help            show this help message and exit
-  --input_files [INPUT_FILES ...]
-                        input files for a particular variable
-  --variable VARIABLE   variable to process from input files
-  --time_agg {min,mean,max}
-                        temporal aggregation to apply to input files (used to convert hourly to daily)
-  --hshift              Shfit time axis values back one hour (required for ERA5 data)
-  --start_date START_DATE
-                        Start date in YYYY, YYYY-MM or YYYY-MM-DD format
-  --end_date END_DATE   Start date in YYYY, YYYY-MM or YYYY-MM-DD format
-  --lat_bnds LAT_BNDS LAT_BNDS
-                        Latitude bounds: (south_bound, north_bound)
-  --lon_bnds LON_BNDS LON_BNDS
-                        Longitude bounds: (west_bound, east_bound)
-  --base_period BASE_PERIOD BASE_PERIOD
-                        Base period (for percentile calculations) in YYYY-MM-DD format
-  --slice_mode {year,month,DJF,MAM,JJA,SON,ONDJFM,AMJJAS}
-                        Sampling frequency for index calculation [default=year]
-  --verbose             Set logging level to INFO
-  --local_cluster       Use a local dask cluster
-  --nworkers NWORKERS   Number of workers for local dask cluster
-  --nthreads NTHREADS   Number of threads per worker for local dask cluster
-  --memory_limit MEMORY_LIMIT
-                        Memory limit for local dask cluster
-  --dask_dir DASK_DIR   Directory where dask worker space files can be written. Required for local dask cluster.
-  --drop_time_bounds    Drop the time bounds from output file
 ```
 
 #### Example 1: Simple indices
@@ -167,3 +133,55 @@ and will add advice to this documentation soon,
 but in general the computation will be fastest if you simply allocate a large amount of memory to the job
 (e.g. using the `largemem` job queue on NCI)
 as opposed to fiddling around with a local dask cluster.
+
+
+## Usage: `run_xclim.py`
+
+Running the script at the command line with the `-h` option explains the user options,
+including the list of indices that the script can calculate.
+
+```bash
+$ python run_xclim.py -h
+```
+
+#### Example 1: Simple indices
+
+The most basic use of `run_xclim.py` requires passing the script 
+the name of the index to calculate,
+the name of the output file,
+the name/s of the input file/s,
+the name of the variable to access from that file/s,
+a threshold value for the index, and
+date bounds if analysing a restricted part of the year.
+For example:
+
+```
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_xclim.py frost_days frost_days.nc --input_files /g/data/wp00/data/QQ-CMIP5/ACCESS1-0/tasmin/rcp45/2036-2065/tasmin_AUS_ACCESS1-0_rcp45_r1i1p1_CSIRO-QQS-AGCD-1981-2010_day_wrt_1986-2005_2036-2065.nc --variable tasmin --thresh "0.1 degC" --date_bounds 08-01 10-15 --verbose
+```
+
+In the example above,
+the `--verbose` flag has also been invoked so that the program prints its progress to the screen.
+
+
+#### Example 2: Indices involving daily mean temperature
+
+Many datasets archive daily minimum and maximum temperature, but not daily mean temperature.
+For metrics that require daily mean temperature,
+`run_xclim.py` will calculate the mean if you input tasmin and tasmax. e.g.
+
+```
+$ /g/data/xv83/dbi599/miniconda3/envs/icclim/bin/python run_xclim.py growing_degree_days gdd.nc --input_files /g/data/wp00/data/QQ-CMIP5/ACCESS1-0/tasmax/rcp45/2036-2065/tasmax_AUS_ACCESS1-0_rcp45_r1i1p1_CSIRO-QQS-AGCD-1981-2010_day_wrt_1986-2005_2036-2065.nc --variable tasmax --input_files /g/data/wp00/data/QQ-CMIP5/ACCESS1-0/tasmin/rcp45/2036-2065/tasmin_AUS_ACCESS1-0_rcp45_r1i1p1_CSIRO-QQS-AGCD-1981-2010_day_wrt_1986-2005_2036-2065.nc --variable tasmin --thresh "0 degC" --date_bounds 04-01 10-31 --verbose
+```
+
+The trick here was to use the `--input_files` and `--variable` options twice;
+once for the tasmax data and once for the tasmin.
+
+#### Common configurations
+
+Late season heat risk / wheat heat risk
+- Description: Number of days per year where the maximum temperature is > 32C between 1 Aug and 30 Nov
+- Arguments: `tx_days_above` metric with `--thresh "32 DegC"` and `--date_bounds 08-01 11-30`
+
+Heat risk fertility metric / sheep heat risk
+- Description: Number of days per year where the maximum temperature is > 32C between 15 Jan and 15 Jun
+- Arguments: `tx_days_above` metric with `--thresh "32 DegC"` and `--date_bounds 01-15 06-15`

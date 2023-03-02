@@ -1,68 +1,86 @@
-"""Command line program for calculating climate indices using icclim."""
+"""Command line program for calculating climate indices using xclim."""
 
 import os
 import argparse
 import logging
-from dateutil import parser
 
-import icclim
-from icclim.ecad.ecad_indices import EcadIndexRegistry
+import xarray as xr
+import xclim as xc
 import dask.diagnostics
 from dask.distributed import Client, LocalCluster, progress
 
 import utils_fileio
 
 
-valid_indices = {
-    index.short_name: index.short_name for index in EcadIndexRegistry.values()
-}
-
-bivariate_indices = [
-    'DTR',
-    'ETR',
-    'vDTR',
-    'CD',
-    'CW',
-    'WD',
-    'WW'
+#limit program to indices we've used/tested
+valid_indices = [
+    'cooling_degree_days',
+    'frost_days',
+    'growing_degree_days',
+    'heat_wave_frequency',
+    'hot_spell_frequency',
+    'hot_spell_max_length',
+    'maximum_consecutive_dry_days',
+    'tn_days_below',
+    'tn_days_above',
 ]
-no_time_chunk_indices = [
-    'WSDI',
-    'TG90p',
-    'TN90p',
-    'TX90p',
-    'TG10p',
-    'TN10p',
-    'TX10p',
-    'CSDI',
-    'R95p',
-    'R95pTOT',
-    'R99p',
-    'R99pTOT',
-    'CD',
-    'CW',
-    'WD',
-    'WW',
-]
-    
 
-def chunk_data(ds, var, index_name):
-    """Chunk a dataset."""
 
-    if index_name in no_time_chunk_indices:
-        dims = ds[var].coords.dims
-        assert 'time' in dims
-        chunks = {'time': -1}
-        for dim in dims:
-            if not dim == 'time':
-                chunks[dim] = 'auto'
-        ds = ds.chunk(chunks)
+def get_xclim_params(args_dict):
+    """Get the parameters and variables required by an xclim indicator function.
 
-    logging.info(f'Array size: {ds[var].shape}')
-    logging.info(f'Chunk size: {ds[var].chunksizes}')
+    Parameters
+    ----------
+    args_dict : dict
+        Input arguments from the command line
 
-    return ds
+    Returns
+    -------
+    index_func : xclim function
+        Function for calculating the index
+    index_params : dict
+        Parameters to pass to index_func
+    index_vars : list
+        Variables required by index_func
+    """
+                
+    index_name = args_dict['index_name']
+    index_func = xc.core.indicator.registry[index_name.upper()].get_instance()
+    index_params = {}
+    index_vars = []
+    thresh_names = []
+    for name, param in index_func.parameters.items():
+        if name in ['ds', 'indexer']:
+            continue
+        elif 'thresh' in name:
+            thresh_names.append(name)
+        elif param['kind'] == xc.core.utils.InputKind.VARIABLE:
+            index_vars.append(name)
+        elif name in args_dict:
+            index_params[name] = args_dict[name]
+            mstr, *ustr = str(param['default']).split(" ", maxsplit=1)
+            if ustr:
+                unit = xc.core.units.units2pint(ustr[0])
+                index_params[name] = "{} {}".format(index_params[name], str(unit))     
+        else:
+            index_params[name] = param['default']
 
+    #Some indicators have a 'thresh' argument and others have thresh_{variable}
+    thresh_dict = {}
+    if 'thresh' in args_dict:
+        input_thresh = args_dict['thresh']
+        if len(input_thresh) == 1:
+            thresh_dict['thresh'] = input_thresh[0]
+        for position, var in enumerate(index_vars):
+            thresh_dict[f'thresh_{var}'] = input_thresh[position]
+    for thresh_name in thresh_names:
+        index_params[thresh_name] = thresh_dict[thresh_name]
+
+    if 'date_bounds' in args_dict: 
+        index_params['date_bounds'] = args_dict['date_bounds']
+
+    return index_func, index_params, index_vars
+                
 
 def main(args):
     """Run the program."""
@@ -83,42 +101,33 @@ def main(args):
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level)
 
-    if args.base_period:
-        start_date = parser.parse(args.base_period[0])
-        end_date = parser.parse(args.base_period[1])
-        base_period = [start_date, end_date]
-    else:
-        base_period = None
+    index_func, index_params, index_vars = get_xclim_params(vars(args))
 
-    datasets = []
-    variables = []
+    ds_list = []
     ndatasets = len(args.variable)
     for dsnum in range(ndatasets):
-        infiles = args.input_files[dsnum]
-        var = args.variable[dsnum]
-        sub_daily_agg = args.sub_daily_agg[dsnum] if args.sub_daily_agg else None
         ds, cf_var = utils_fileio.read_data(
-            infiles,
-            var,
+            args.input_files[dsnum],
+            args.variable[dsnum],
             start_date=args.start_date,
             end_date=args.end_date,
             lat_bnds=args.lat_bnds,
             lon_bnds=args.lon_bnds,
-            sub_daily_agg=sub_daily_agg,
+            sub_daily_agg=args.sub_daily_agg,
             hshift=args.hshift,
         )
-        ds = chunk_data(ds, cf_var, args.index_name)
-        datasets.append(ds)
-        variables.append(cf_var)
+        ds_list.append(ds)
+    ds = xr.merge(ds_list)
 
-    index = icclim.index(
-        in_files=datasets,
-        index_name=args.index_name,
-        var_name=variables,
-        slice_mode=args.slice_mode,
-        base_period_time_range=base_period,
-        logs_verbosity='HIGH',
-    )
+    if 'tas' in index_vars and 'tas' not in ds:
+        ds['tas'] = (ds['tasmax'] + ds['tasmin']) / 2.0
+        ds['tas'].attrs = ds['tasmin'].attrs
+        ds['tas'].attrs['long_name'] = ds['tas'].attrs['long_name'].replace('Minimum', 'Mean')
+
+    logging.info("Running xclim indicator {} with parameters {}".format(args.index_name, index_params))
+
+    index = index_func(ds=ds, **index_params)
+    index = index.to_dataset()
 
     if args.local_cluster:
         index = index.persist()
@@ -129,14 +138,8 @@ def main(args):
     else:
         infile_log = None
     index = utils_fileio.fix_output_metadata(
-        index,
-        args.index_name,
-        ds.attrs,
-        infile_log,
-        'icclim',
-        drop_time_bounds=args.drop_time_bounds
+        index, args.index_name, ds.attrs, infile_log, 'xclim'
     )
-    index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
     index.to_netcdf(args.output_file)
 
 
@@ -147,8 +150,8 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter
     )     
     arg_parser.add_argument(
-        "index_name", type=str, choices=list(valid_indices.keys()), help="index name"
-    )         
+        "index_name", type=str, choices=valid_indices, help="name of climate index"
+    )
     arg_parser.add_argument("output_file", type=str, help="output file name")
     arg_parser.add_argument(
         "--input_files",
@@ -164,12 +167,22 @@ if __name__ == '__main__':
         help="variable to process from input files",
     )
     arg_parser.add_argument(
-        "--sub_daily_agg",
+        "--thresh",
         type=str,
         action='append',
-        choices=('min', 'mean', 'max'),
-        default=None,
-        help="temporal aggregation to apply to sub-daily input files (used to convert hourly to daily)",
+        help='threshold'
+    )
+    arg_parser.add_argument(
+        "--date_bounds",
+        type=str,
+        nargs=2,
+        help='Bounds for the time of year of interest in MM-DD format',
+    )
+    arg_parser.add_argument(
+        "--freq",
+        type=str,
+        default='YS',
+        help='Sampling frequency for index calculation [default=YS]',
     )
     arg_parser.add_argument(
         "--hshift",
@@ -210,18 +223,12 @@ if __name__ == '__main__':
         help='Longitude bounds: (west_bound, east_bound)',
     )
     arg_parser.add_argument(
-        "--base_period",
+        "--sub_daily_agg",
         type=str,
-        nargs=2,
+        action='append',
+        choices=('min', 'mean', 'max'),
         default=None,
-        help='Base period (for percentile calculations) in YYYY-MM-DD format',
-    )
-    arg_parser.add_argument(
-        "--slice_mode",
-        type=str,
-        choices=['year', 'month', 'DJF', 'MAM', 'JJA', 'SON', 'ONDJFM', 'AMJJAS'],
-        default='year',
-        help='Sampling frequency for index calculation [default=year]',
+        help="temporal aggregation to apply to sub-daily input files (used to convert hourly to daily)",
     )
     arg_parser.add_argument(
         "--verbose",
@@ -259,27 +266,10 @@ if __name__ == '__main__':
         default=None,
         help='Directory where dask worker space files can be written. Required for local dask cluster.',
     )
-    arg_parser.add_argument(
-        "--drop_time_bounds",
-        action='store_true',
-        default=False,
-        help='Drop the time bounds from output file',
-    )
     args = arg_parser.parse_args()
 
     assert not os.path.isfile(args.output_file), \
         f'Output file {args.output_file} already exists. Delete before proceeding.'
-
-    if args.index_name in bivariate_indices:
-        assert len(args.variable) == 2, \
-            f'{args.index_name} requires two variables' 
-        assert len(args.input_files) == 2, \
-            f'{args.index_name} requires two sets of input file/s (one for each variable)'
-    else:
-        assert len(args.variable) == 1, \
-            f'{args.index_name} requires one variable' 
-        assert len(args.input_files) == 1, \
-            f'{args.index_name} requires one set of input file/s'
 
     with dask.diagnostics.ResourceProfiler() as rprof:
         main(args)
