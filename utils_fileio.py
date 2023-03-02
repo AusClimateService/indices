@@ -9,7 +9,7 @@ import xclim as xc
 import icclim
 import cmdline_provenance as cmdprov
 
-import spatial_utils
+import utils_spatial
 
 
 def get_new_log(infile_log=None):
@@ -141,9 +141,9 @@ def read_data(
         ds['time'] = ds['time'] - np.timedelta64(1, 'h')
 
     if lat_bnds:
-        ds = spatial_utils.subset_lat(ds, lat_bnds)
+        ds = utils_spatial.subset_lat(ds, lat_bnds)
     if lon_bnds:
-        ds = spatial_utils.subset_lon(ds, lon_bnds)
+        ds = utils_spatial.subset_lon(ds, lon_bnds)
     if start_date or end_date:
         ds = subset_time(ds, start_date=start_date, end_date=end_date)
 

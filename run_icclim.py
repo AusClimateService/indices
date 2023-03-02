@@ -10,7 +10,7 @@ from icclim.ecad.ecad_indices import EcadIndexRegistry
 import dask.diagnostics
 from dask.distributed import Client, LocalCluster, progress
 
-import fileio_utils
+import utils_fileio
 
 
 valid_indices = {
@@ -97,7 +97,7 @@ def main(args):
         infiles = args.input_files[dsnum]
         var = args.variable[dsnum]
         sub_daily_agg = args.sub_daily_agg[dsnum] if args.sub_daily_agg else None
-        ds, cf_var = fileio_utils.read_data(
+        ds, cf_var = utils_fileio.read_data(
             infiles,
             var,
             start_date=args.start_date,
@@ -128,7 +128,7 @@ def main(args):
         infile_log = {infiles[0], ds.attrs['history']}
     else:
         infile_log = None
-    index = fileio_utils.fix_output_metadata(
+    index = utils_fileio.fix_output_metadata(
         index,
         args.index_name,
         ds.attrs,
@@ -283,4 +283,4 @@ if __name__ == '__main__':
 
     with dask.diagnostics.ResourceProfiler() as rprof:
         main(args)
-    fileio_utils.profiling_stats(rprof)
+    utils_fileio.profiling_stats(rprof)
