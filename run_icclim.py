@@ -118,6 +118,7 @@ def main(args):
         slice_mode=args.slice_mode,
         base_period_time_range=base_period,
         logs_verbosity='HIGH',
+        save_thresholds=True,
     )
 
     if args.local_cluster:
