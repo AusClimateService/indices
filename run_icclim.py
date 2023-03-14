@@ -120,7 +120,7 @@ def main(args):
         slice_mode=args.slice_mode,
         base_period_time_range=base_period,
         logs_verbosity='HIGH',
-        save_thresholds=True,
+        save_thresholds=args.save_thresh,
     )
 
     if args.local_cluster:
@@ -267,6 +267,12 @@ if __name__ == '__main__':
         action='store_true',
         default=False,
         help='Drop the time bounds from output file',
+    )
+    arg_parser.add_argument(
+	"--save_thresh",
+	action='store_true',
+	default=False,
+	help='Save threshold values to output file',
     )
     args = arg_parser.parse_args()
 
