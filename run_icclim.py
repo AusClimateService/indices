@@ -43,6 +43,8 @@ no_time_chunk_indices = [
     'CW',
     'WD',
     'WW',
+    'SPI3',
+    'SPI6',
 ]
     
 
