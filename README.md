@@ -129,10 +129,15 @@ The `run_icclim.py` script has a `--local_cluster` option that can be used
 (in conjunction with the `--nworkers` and `--nthreads` options)
 to launch and configure a local dask cluster.
 We are still figuring out the optimal local cluster settings for different use cases
-and will add advice to this documentation soon,
+(and will add advice to this documentation if we find any useful approaches),
 but in general the computation will be fastest if you simply allocate a large amount of memory to the job
 (e.g. using the `largemem` job queue on NCI)
 as opposed to fiddling around with a local dask cluster.
+The only time allocating a large amount of memory possibly won't be sufficient
+is when using the `--base_period` option, which seems to dramitically increase compute requirements.
+We haven't been able to find dask cluster settings to overcome this problem,
+so a `--nslices` option is available to slice up the input data (along the longitude axis)
+and process each slice one-by-one before putting it all back together at the end. 
 
 
 ## Usage: `run_xclim.py`
