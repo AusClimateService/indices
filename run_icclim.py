@@ -1,10 +1,12 @@
 """Command line program for calculating climate indices using icclim."""
-
+import pdb
 import os
 import argparse
 import logging
 from dateutil import parser
 
+import numpy as np
+import xarray as xr
 import icclim
 from icclim.ecad.ecad_indices import EcadIndexRegistry
 import dask.diagnostics
@@ -109,23 +111,37 @@ def main(args):
             sub_daily_agg=sub_daily_agg,
             hshift=args.hshift,
         )
-        ds = chunk_data(ds, cf_var, args.index_name)
         datasets.append(ds)
         variables.append(cf_var)
 
-    index = icclim.index(
-        in_files=datasets,
-        index_name=args.index_name,
-        var_name=variables,
-        slice_mode=args.slice_mode,
-        base_period_time_range=base_period,
-        logs_verbosity='HIGH',
-        save_thresholds=args.save_thresh,
-    )
+    outdir = os.path.dirname(args.output_file)
+    temp_files = []
+    nlons = len(ds['lon'])
+    lon_islices = np.array_split(np.arange(nlons), args.nslices)
+    lon_islices = lon_islices[0:10]
+    for count, lon_islice in enumerate(lon_islices):
+        print(f'COUNT {count}')
+        sliced_datasets = [chunk_data(ds.isel({'lon': lon_islice}), var, args.index_name) for ds, var in zip(datasets, variables)]
+        index = icclim.index(
+            in_files=sliced_datasets,
+            index_name=args.index_name,
+            var_name=variables,
+            slice_mode=args.slice_mode,
+            base_period_time_range=base_period,
+            logs_verbosity='HIGH',
+            save_thresholds=args.save_thresh,
+        )
+        if args.local_cluster:
+            index = index.persist()
+            progress(index)
+        index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
+        if args.nslices > 1:
+            temp_file = f'{outdir}/icclim_temp_{count:0>2}.nc'
+            index.to_netcdf(temp_file)
+            temp_files.append(temp_file)
 
-    if args.local_cluster:
-        index = index.persist()
-        progress(index)
+    if args.nslices > 1:
+        index = xr.open_mfdataset(temp_files)
 
     if args.append_history:
         infile_log = {infiles[0], ds.attrs['history']}
@@ -139,8 +155,9 @@ def main(args):
         'icclim',
         drop_time_bounds=args.drop_time_bounds
     )
-    index[args.index_name] = index[args.index_name].transpose('time', 'lat', 'lon', missing_dims='warn')
     index.to_netcdf(args.output_file)
+    for temp_file in temp_files:
+        os.remove(temp_file)
 
 
 if __name__ == '__main__':
@@ -249,6 +266,12 @@ if __name__ == '__main__':
         type=int,
         default=None,
         help='Number of threads per worker for local dask cluster',
+    )
+    arg_parser.add_argument(
+        "--nslices",
+        type=int,
+        default=1,
+        help='Slice the dataset along the longitude axis for processing',
     )
     arg_parser.add_argument(
         "--memory_limit",
