@@ -1,5 +1,5 @@
 """Command line program for calculating climate indices using icclim."""
-import pdb
+
 import os
 import argparse
 import logging
@@ -118,9 +118,7 @@ def main(args):
     temp_files = []
     nlons = len(ds['lon'])
     lon_islices = np.array_split(np.arange(nlons), args.nslices)
-    lon_islices = lon_islices[0:10]
     for count, lon_islice in enumerate(lon_islices):
-        print(f'COUNT {count}')
         sliced_datasets = [chunk_data(ds.isel({'lon': lon_islice}), var, args.index_name) for ds, var in zip(datasets, variables)]
         index = icclim.index(
             in_files=sliced_datasets,
