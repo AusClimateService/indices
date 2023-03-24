@@ -142,9 +142,10 @@ def main(args):
         index = xr.open_mfdataset(temp_files)
 
     if args.append_history:
-        infile_log = {infiles[0], ds.attrs['history']}
+        infile_log = {infiles[0]: ds.attrs['history']}
     else:
         infile_log = None
+
     index = utils_fileio.fix_output_metadata(
         index,
         args.index_name,
