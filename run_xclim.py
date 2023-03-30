@@ -134,7 +134,7 @@ def main(args):
         progress(index)
 
     if args.append_history:
-        infile_log = {infiles[0], ds.attrs['history']}
+        infile_log = {infiles[0]: ds.attrs['history']}
     else:
         infile_log = None
     index = utils_fileio.fix_output_metadata(
