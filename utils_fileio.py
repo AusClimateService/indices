@@ -105,7 +105,7 @@ def fix_output_metadata(
     except KeyError:
         pass
     if index_ds[index_name].attrs['units'] == '°C':
-        index_ds[index_name].attrs['units'] = 'C'
+        index_ds[index_name].attrs['units'] = 'degC'
 
     if drop_time_bounds:
         index_ds = index_ds.drop('time_bounds').drop('bounds')
