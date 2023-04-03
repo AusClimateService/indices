@@ -49,6 +49,10 @@ def fix_input_metadata(ds, variable, sub_daily_agg):
             cf_var = 'tasmin'
         else:
             cf_var = 'tas'
+    elif variable in ['sfcWind', 'si10']:
+         cf_var = 'sfcWind'
+    elif variable in ['sfcWindmax', 'fg10', 'wsgsmax']:
+         cf_var = 'wsgsmax'
     else:
         ValueError(f'No metadata fixes defined for {variable}')
     ds = ds.rename({variable: cf_var})
@@ -58,12 +62,16 @@ def fix_input_metadata(ds, variable, sub_daily_agg):
         'tas': 'air_temperature',
         'tasmin': 'air_temperature',
         'tasmax': 'air_temperature',
+        'sfcWind': '10m_wind_speed',
+        'wsgsmax': 'wind_speed_of_gust',
     }
     long_names = {
         'pr': 'Precipitation',
         'tas': 'Near-Surface Air Temperature',
         'tasmin': 'Daily Minimum Near-Surface Air Temperature',
         'tasmax': 'Daily Maximum Near-Surface Air Temperature',
+        'sfcWind': 'Near-Surface (10m) Wind Speed',
+        'wsgsmax': 'Daily Maximum Near-Surface Wind Speed of Gust',
     }
     ds[cf_var].attrs['standard_name'] = standard_names[cf_var]
     ds[cf_var].attrs['long_name'] = long_names[cf_var]        
