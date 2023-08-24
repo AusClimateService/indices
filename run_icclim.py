@@ -114,16 +114,25 @@ def main(args):
         datasets.append(ds)
         variables.append(cf_var)
 
+    if args.thresholds_file:
+        assert len(args.variable) == 1
+        assert args.thresholds_variable, "Need to supply threshold variable"
+        ds_thresholds = xr.open_dataset(args.thresholds_file)
+        ds_thresholds = ds_thresholds[[args.thresholds_variable]]
+#            lat_bnds=args.lat_bnds,
+#            lon_bnds=args.lon_bnds,
+
     outdir = os.path.dirname(args.output_file)
     temp_files = []
     nlons = len(ds['lon'])
     lon_islices = np.array_split(np.arange(nlons), args.nslices)
     for count, lon_islice in enumerate(lon_islices):
-        sliced_datasets = [chunk_data(ds.isel({'lon': lon_islice}), var, args.index_name) for ds, var in zip(datasets, variables)]
+        sliced_datasets = {var: chunk_data(ds.isel({'lon': lon_islice}), var, args.index_name) for ds, var in zip(datasets, variables)}
+        if args.thresholds_file:
+            sliced_datasets['thresholds'] = ds_thresholds
         index = icclim.index(
             in_files=sliced_datasets,
             index_name=args.index_name,
-            var_name=variables,
             slice_mode=args.slice_mode,
             base_period_time_range=base_period,
             logs_verbosity='HIGH',
@@ -189,6 +198,18 @@ if __name__ == '__main__':
         choices=('min', 'mean', 'max'),
         default=None,
         help="temporal aggregation to apply to sub-daily input files (used to convert hourly to daily)",
+    )
+    arg_parser.add_argument(
+        "--thresholds_file",
+        type=str,
+        default=None,
+        help='File containing threshold values (e.g. 90th percentile for an historical period)',
+    )
+    arg_parser.add_argument(
+        "--thresholds_variable",
+        type=str,
+        default=None,
+        help='Variable to extract from threshold file',
     )
     arg_parser.add_argument(
         "--hshift",
