@@ -185,8 +185,8 @@ once for the tasmax data and once for the tasmin.
 
 Late season heat risk / wheat heat risk
 - Description: Number of days per year where the maximum temperature is > 32C between 1 Aug and 30 Nov
-- Arguments: `tx_days_above` metric with `--thresh "32 DegC"` and `--date_bounds 08-01 11-30`
+- Arguments: `tx_days_above` metric with `--thresh "32 degC"` and `--date_bounds 08-01 11-30`
 
 Heat risk fertility metric / sheep heat risk
 - Description: Number of days per year where the maximum temperature is > 32C between 15 Jan and 15 Jun
-- Arguments: `tx_days_above` metric with `--thresh "32 DegC"` and `--date_bounds 01-15 06-15`
+- Arguments: `tx_days_above` metric with `--thresh "32 degC"` and `--date_bounds 01-15 06-15`
