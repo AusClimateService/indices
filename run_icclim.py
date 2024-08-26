@@ -154,7 +154,7 @@ def main(args):
         'icclim',
         drop_time_bounds=args.drop_time_bounds
     )
-    index.to_netcdf(args.output_file)
+    index.to_netcdf(args.output_file,encoding={args.index_name:{'zlib':True, 'complevel':1, 'shuffle':True}})
     for temp_file in temp_files:
         os.remove(temp_file)
 

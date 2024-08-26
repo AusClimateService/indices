@@ -20,9 +20,28 @@ valid_indices = [
     'heat_wave_frequency',
     'hot_spell_frequency',
     'hot_spell_max_length',
+    'hot_spell_total_length',
+    'cold_spell_frequency',
+    'cold_spell_max_length',
+    'cold_spell_total_length',
     'maximum_consecutive_dry_days',
+    'maximum_consecutive_wet_days',
+    'maximum_consecutive_tx_days',
+    'maximum_consecutive_frost_days',
+    'maximum_consecutive_frost_free_days',
     'tn_days_below',
     'tn_days_above',
+    'tx_days_below',
+    'tx_days_above',
+    'tg_days_below',
+    'tg_days_above',
+    'heat_wave_frequency',
+    'heat_wave_index',
+    'heat_wave_max_length',
+    'heat_wave_total_length',
+    'heating_degree_days',
+    'high_precip_low_temp',
+    'max_n_day_precipitation_amount',
 ]
 
 
@@ -106,14 +125,17 @@ def main(args):
     ds_list = []
     ndatasets = len(args.variable)
     for dsnum in range(ndatasets):
+        infiles = args.input_files[dsnum]
+        var = args.variable[dsnum]
+        sub_daily_agg = args.sub_daily_agg[dsnum] if args.sub_daily_agg else None
         ds, cf_var = utils_fileio.read_data(
-            args.input_files[dsnum],
-            args.variable[dsnum],
+            infiles,
+            var,
             start_date=args.start_date,
             end_date=args.end_date,
             lat_bnds=args.lat_bnds,
             lon_bnds=args.lon_bnds,
-            sub_daily_agg=args.sub_daily_agg,
+            sub_daily_agg=sub_daily_agg,
             hshift=args.hshift,
         )
         ds_list.append(ds)
@@ -140,7 +162,7 @@ def main(args):
     index = utils_fileio.fix_output_metadata(
         index, args.index_name, ds.attrs, infile_log, 'xclim'
     )
-    index.to_netcdf(args.output_file)
+    index.to_netcdf(args.output_file,encoding={args.index_name:{'zlib':True, 'complevel':1, 'shuffle':True}})
 
 
 if __name__ == '__main__':
@@ -179,6 +201,12 @@ if __name__ == '__main__':
         help='Bounds for the time of year of interest in MM-DD format',
     )
     arg_parser.add_argument(
+        "--window",
+        type=int,
+        default=argparse.SUPPRESS,
+        help='Minimum number of days with temperatures above thresholds (used for heat wave indices)',
+    )
+    arg_parser.add_argument(
         "--freq",
         type=str,
         default='YS',
@@ -188,7 +216,7 @@ if __name__ == '__main__':
         "--hshift",
         action='store_true',
         default=False,
-        help='Shfit time axis values back one hour (required for ERA5 data)',
+        help='Shift time axis values back one hour (required for ERA5 data)',
     )
     arg_parser.add_argument(
         "--append_history",
